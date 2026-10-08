@@ -1,61 +1,198 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  CalendarDays,
-  Upload,
-  Mic,
-  FileAudio,
-  CheckCircle2,
   AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
+  FileAudio,
   LoaderCircle,
+  Upload,
+  X,
 } from "lucide-react";
 
 import AppHeader from "../components/AppHeader";
 import BottomNav from "../components/BottomNav";
 
-const FALLBACK_TRANSCRIPT =
-  "Okay so, sold the Innova, the 2017, plate NBC 4521, for 690k. " +
-  "Buyer paid 600 cash then the rest... ah no, full na pala, bank transfer yung balance. " +
-  "Also collected storage fee from the BDO units, 8,000. Then load for the office phones, 1,000.";
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
-function RecapScreen({ onContinueToExtraction }) {
+const ACCEPTED_AUDIO_TYPES = [
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/mp4",
+  "audio/m4a",
+  "audio/x-m4a",
+  "audio/webm",
+  "audio/ogg",
+  "video/mp4",
+];
+
+function getTodayDate() {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return "0 KB";
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+/**
+ * Safely reads a backend response.
+ *
+ * This prevents errors such as:
+ * "Unexpected token <"
+ * or
+ * "The string did not match the expected pattern"
+ *
+ * if Vercel returns an HTML error page instead of JSON.
+ */
+async function readApiResponse(response) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  const text = await response.text();
+
+  throw new Error(
+    text
+      ? `Server returned an unexpected response (${response.status}).`
+      : `Server request failed (${response.status}).`
+  );
+}
+
+export default function RecapScreen({
+  onContinue,
+  onNavigate,
+}) {
   const fileInputRef = useRef(null);
 
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [audioUrl, setAudioUrl] = useState("");
+  const [businessDate, setBusinessDate] =
+    useState(getTodayDate());
 
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [audioFile, setAudioFile] =
+    useState(null);
 
-  const [error, setError] = useState("");
-  const [transcript, setTranscript] = useState("");
+  const [audioUrl, setAudioUrl] =
+    useState("");
 
-  const handleSelectFile = (event) => {
-    const file = event.target.files?.[0];
+  const [isProcessing, setIsProcessing] =
+    useState(false);
 
-    if (!file) return;
+  const [error, setError] =
+    useState("");
 
+  const [successMessage, setSuccessMessage] =
+    useState("");
+
+  /*
+    Clean up object URL whenever the selected
+    audio file changes or the screen unmounts.
+  */
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
+  function clearMessages() {
     setError("");
-    setTranscript("");
+    setSuccessMessage("");
+  }
 
-    const allowedTypes = [
-      "audio/mpeg",
-      "audio/mp4",
-      "audio/wav",
-      "audio/x-wav",
-      "audio/webm",
-      "audio/ogg",
-      "audio/m4a",
+  function resetAudio() {
+    clearMessages();
+
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
+
+    setAudioFile(null);
+    setAudioUrl("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function validateAudioFile(file) {
+    if (!file) {
+      return "Please select an audio recording.";
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return `The selected recording is ${formatFileSize(
+        file.size
+      )}. Please upload a recording smaller than 4 MB.`;
+    }
+
+    /*
+      Some browsers may return an empty MIME type
+      for valid M4A recordings, so extension checking
+      is also allowed.
+    */
+
+    const extension =
+      file.name
+        .split(".")
+        .pop()
+        ?.toLowerCase() || "";
+
+    const allowedExtensions = [
+      "mp3",
+      "wav",
+      "m4a",
+      "mp4",
+      "webm",
+      "ogg",
     ];
 
-    const extensionAllowed =
-      /\.(mp3|wav|m4a|mp4|webm|ogg)$/i.test(file.name);
+    const typeAllowed =
+      !file.type ||
+      ACCEPTED_AUDIO_TYPES.includes(file.type) ||
+      file.type.startsWith("audio/");
 
-    if (
-      !allowedTypes.includes(file.type) &&
-      !extensionAllowed
-    ) {
-      setError(
-        "Please choose an audio file such as MP3, WAV, M4A, or WebM."
-      );
+    const extensionAllowed =
+      allowedExtensions.includes(extension);
+
+    if (!typeAllowed && !extensionAllowed) {
+      return "Unsupported audio format. Please upload MP3, WAV, M4A, MP4, WebM, or OGG.";
+    }
+
+    return null;
+  }
+
+  function handleFileChange(event) {
+    clearMessages();
+
+    const file =
+      event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const validationError =
+      validateAudioFile(file);
+
+    if (validationError) {
+      setError(validationError);
+
+      event.target.value = "";
 
       return;
     }
@@ -64,23 +201,40 @@ function RecapScreen({ onContinueToExtraction }) {
       URL.revokeObjectURL(audioUrl);
     }
 
-    setSelectedFile(file);
-    setAudioUrl(URL.createObjectURL(file));
-  };
+    const objectUrl =
+      URL.createObjectURL(file);
 
-  const transcribeAudio = async () => {
-    if (!selectedFile) {
-      setError("Please choose an audio recording first.");
+    setAudioFile(file);
+    setAudioUrl(objectUrl);
+  }
+
+  async function handleProcessRecording() {
+    clearMessages();
+
+    const validationError =
+      validateAudioFile(audioFile);
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setIsProcessing(true);
-    setError("");
 
     try {
-      const formData = new FormData();
+      const formData =
+        new FormData();
 
-      formData.append("audio", selectedFile);
+      /*
+        This field name must match:
+        upload.single("audio")
+        in server.js
+      */
+
+      formData.append(
+        "audio",
+        audioFile
+      );
 
       const response = await fetch(
         "/api/transcribe",
@@ -90,214 +244,358 @@ function RecapScreen({ onContinueToExtraction }) {
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Transcription service unavailable.");
+      const data =
+        await readApiResponse(response);
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.error ||
+            data.details ||
+            "Unable to transcribe the recording."
+        );
       }
 
-      const result = await response.json();
+      const transcript =
+        String(
+          data.transcript || ""
+        ).trim();
 
-      const transcriptText =
-        result.transcript?.trim() || FALLBACK_TRANSCRIPT;
-
-      setTranscript(transcriptText);
-
-      sessionStorage.setItem(
-        "dryveTranscript",
-        transcriptText
-      );
-    } catch (err) {
-      console.error(err);
+      if (!transcript) {
+        throw new Error(
+          "The transcription service returned an empty transcript."
+        );
+      }
 
       /*
-        Temporary fallback while the transcription
-        backend is still being connected.
+        Save only the real transcript.
+        There is intentionally no mock/demo fallback.
       */
-      setTranscript(FALLBACK_TRANSCRIPT);
 
       sessionStorage.setItem(
         "dryveTranscript",
-        FALLBACK_TRANSCRIPT
+        transcript
       );
 
+      sessionStorage.setItem(
+        "dryveBusinessDate",
+        businessDate
+      );
+
+      setSuccessMessage(
+        "Transcription completed successfully."
+      );
+
+      onContinue?.({
+        date: businessDate,
+        businessDate,
+        currency: "PHP",
+        audioFile,
+        audioUrl,
+        transcript,
+      });
+    } catch (requestError) {
+      console.error(
+        "Transcription request failed:",
+        requestError
+      );
+
+      /*
+        Do NOT load a fake transcript here.
+        A failed API request should remain a visible
+        error so the reviewer knows the AI service
+        did not actually process the recording.
+      */
+
       setError(
-        "Transcription service is not connected yet. Demo transcript was loaded instead."
+        requestError?.message ||
+          "Unable to connect to the transcription service."
       );
     } finally {
       setIsProcessing(false);
     }
-  };
+  }
 
-  const handleContinue = () => {
-    if (!transcript) {
-      setError("Process the recording before continuing.");
-      return;
+  function handleBottomNavigation(tab) {
+    if (onNavigate) {
+      onNavigate(tab);
     }
-
-    onContinueToExtraction?.({
-      audioFile: selectedFile,
-      audioUrl,
-      transcript,
-    });
-  };
+  }
 
   return (
     <div className="app-shell">
-      <main className="phone-app">
-        <AppHeader />
+      <AppHeader />
 
-        <section className="content recap-upload-content">
-          <div className="page-heading">
-            <h1>Daily Recap</h1>
+      <main className="screen-content recap-screen">
+        <section className="page-heading">
+          <div>
+            <p className="eyebrow">
+              DAILY RECAP
+            </p>
 
-            <div className="recording-date">
-              <CalendarDays size={20} />
+            <h1>
+              Upload Voice Recording
+            </h1>
 
-              <span>October 7, 2026</span>
+            <p className="page-description">
+              Upload the manager&apos;s daily
+              voice recap. The recording will be
+              transcribed and reviewed before
+              accounting transactions are created.
+            </p>
+          </div>
+        </section>
+
+        <section className="recap-card">
+          <div className="section-heading-row">
+            <div>
+              <h2>
+                Business Date
+              </h2>
+
+              <p>
+                Select the date the transactions
+                belong to.
+              </p>
             </div>
+
+            <CalendarDays
+              size={22}
+              aria-hidden="true"
+            />
           </div>
 
-          <section className="upload-intro">
-            <div className="upload-icon-large">
-              <FileAudio size={34} />
+          <label
+            className="field-label"
+            htmlFor="business-date"
+          >
+            Business Date
+          </label>
+
+          <input
+            id="business-date"
+            className="business-date-input"
+            type="date"
+            value={businessDate}
+            disabled={isProcessing}
+            onChange={(event) => {
+              clearMessages();
+
+              setBusinessDate(
+                event.target.value
+              );
+            }}
+          />
+        </section>
+
+        <section className="recap-card">
+          <div className="section-heading-row">
+            <div>
+              <h2>
+                Audio Recording
+              </h2>
+
+              <p>
+                MP3, WAV, M4A, MP4, WebM or OGG.
+              </p>
             </div>
 
-            <h2>Upload Daily Recording</h2>
-
-            <p>
-              Choose a manager's daily voice recap and the
-              system will convert it into structured transactions.
-            </p>
-          </section>
+            <FileAudio
+              size={22}
+              aria-hidden="true"
+            />
+          </div>
 
           <input
             ref={fileInputRef}
             type="file"
-            accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg"
-            onChange={handleSelectFile}
+            accept=".mp3,.wav,.m4a,.mp4,.webm,.ogg,audio/*"
             hidden
+            disabled={isProcessing}
+            onChange={handleFileChange}
           />
 
-          <button
-            type="button"
-            className="choose-recording-button"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload size={20} />
-
-            {selectedFile
-              ? "Choose Another Recording"
-              : "Choose Audio Recording"}
-          </button>
-
-          {selectedFile && (
-            <section className="selected-audio-card">
-              <div className="selected-file-icon">
-                <FileAudio size={22} />
-              </div>
-
-              <div className="selected-file-info">
-                <strong>{selectedFile.name}</strong>
-
-                <span>
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </span>
-              </div>
-
-              <CheckCircle2
-                size={20}
-                className="selected-check"
-              />
-            </section>
-          )}
-
-          {audioUrl && (
-            <audio
-              className="uploaded-audio-player"
-              controls
-              src={audioUrl}
-            />
-          )}
-
-          <button
-            type="button"
-            className="process-recording-button"
-            onClick={transcribeAudio}
-            disabled={!selectedFile || isProcessing}
-          >
-            {isProcessing ? (
-              <>
-                <LoaderCircle
-                  size={20}
-                  className="processing-spinner"
-                />
-
-                Transcribing Recording...
-              </>
-            ) : (
-              <>
-                <Mic size={20} />
-
-                Process Recording
-              </>
-            )}
-          </button>
-
-          <div className="upload-divider">
-            <span>OR</span>
-          </div>
-
-          <button
-            type="button"
-            className="optional-record-button"
-            onClick={() =>
-              alert(
-                "Live recording is optional for this prototype. Uploading recordings is the primary demo flow."
-              )
-            }
-          >
-            <Mic size={19} />
-
-            Record Voice
-            <span>Optional</span>
-          </button>
-
-          {error && (
-            <div className="upload-warning">
-              <AlertTriangle size={19} />
-
-              <span>{error}</span>
-            </div>
-          )}
-
-          {transcript && (
-            <section className="transcription-ready-card">
-              <CheckCircle2 size={21} />
-
-              <div>
-                <strong>Transcription ready</strong>
-
-                <span>
-                  Continue to review the detected transactions.
-                </span>
-              </div>
-            </section>
-          )}
-
-          {transcript && (
+          {!audioFile ? (
             <button
               type="button"
-              className="continue-button"
-              onClick={handleContinue}
+              className="audio-upload-area"
+              disabled={isProcessing}
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
             >
-              Continue to AI Extraction
+              <div className="upload-icon">
+                <Upload
+                  size={26}
+                  aria-hidden="true"
+                />
+              </div>
+
+              <strong>
+                Choose Audio Recording
+              </strong>
+
+              <span>
+                Maximum file size: 4 MB
+              </span>
             </button>
+          ) : (
+            <div className="selected-audio-card">
+              <div className="selected-audio-main">
+                <div className="selected-audio-icon">
+                  <FileAudio
+                    size={24}
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <div className="selected-audio-info">
+                  <strong>
+                    {audioFile.name}
+                  </strong>
+
+                  <span>
+                    {formatFileSize(
+                      audioFile.size
+                    )}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Remove selected recording"
+                  disabled={isProcessing}
+                  onClick={resetAudio}
+                >
+                  <X
+                    size={20}
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+
+              {audioUrl && (
+                <audio
+                  className="audio-preview"
+                  controls
+                  src={audioUrl}
+                >
+                  Your browser does not support
+                  audio playback.
+                </audio>
+              )}
+
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={isProcessing}
+                onClick={() =>
+                  fileInputRef.current?.click()
+                }
+              >
+                Choose Different Recording
+              </button>
+            </div>
           )}
         </section>
 
-        <BottomNav activeTab="recap" />
+        {error && (
+          <div
+            className="status-message error-message"
+            role="alert"
+          >
+            <AlertTriangle
+              size={20}
+              aria-hidden="true"
+            />
+
+            <div>
+              <strong>
+                Unable to process recording
+              </strong>
+
+              <p>
+                {error}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {successMessage && (
+          <div
+            className="status-message success-message"
+            role="status"
+          >
+            <CheckCircle2
+              size={20}
+              aria-hidden="true"
+            />
+
+            <div>
+              <strong>
+                Transcription ready
+              </strong>
+
+              <p>
+                {successMessage}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="primary-button full-width-button"
+          disabled={
+            !audioFile ||
+            !businessDate ||
+            isProcessing
+          }
+          onClick={handleProcessRecording}
+        >
+          {isProcessing ? (
+            <>
+              <LoaderCircle
+                className="spin"
+                size={19}
+                aria-hidden="true"
+              />
+
+              Transcribing Recording...
+            </>
+          ) : (
+            <>
+              <Upload
+                size={19}
+                aria-hidden="true"
+              />
+
+              Process Recording
+            </>
+          )}
+        </button>
+
+        <div className="privacy-note">
+          <CheckCircle2
+            size={17}
+            aria-hidden="true"
+          />
+
+          <span>
+            Uploaded audio is used temporarily
+            for transcription and is deleted by
+            the backend after processing.
+          </span>
+        </div>
       </main>
+
+      <BottomNav
+        activeTab="recap"
+        onNavigate={handleBottomNavigation}
+      />
     </div>
   );
 }
-
-export default RecapScreen;

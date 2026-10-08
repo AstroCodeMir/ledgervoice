@@ -1,65 +1,131 @@
-import { useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import {
-  FileText,
-  Pencil,
-  Sparkles,
-  LoaderCircle,
   AlertTriangle,
-  Car,
-  Wrench,
-  Fuel,
-  Users,
-  WalletCards,
+  ArrowLeft,
   CheckCircle2,
+  FileText,
+  LoaderCircle,
+  Pencil,
+  Save,
+  Sparkles,
 } from "lucide-react";
 
 import AppHeader from "../components/AppHeader";
 import BottomNav from "../components/BottomNav";
 
 function formatCurrency(amount) {
-  if (amount === null || amount === undefined) {
+  if (
+    amount === null ||
+    amount === undefined ||
+    amount === ""
+  ) {
     return "Amount missing";
   }
 
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+  const numericAmount =
+    Number(amount);
 
-function getTransactionIcon(account) {
-  switch (account) {
-    case "Vehicle Sales":
-    case "Vehicle Acquisition Cost":
-      return Car;
-
-    case "Reconditioning":
-      return Wrench;
-
-    case "Transport and Fuel":
-      return Fuel;
-
-    case "Salaries and Commissions":
-      return Users;
-
-    default:
-      return WalletCards;
+  if (
+    !Number.isFinite(
+      numericAmount
+    )
+  ) {
+    return "Amount missing";
   }
+
+  return new Intl.NumberFormat(
+    "en-PH",
+    {
+      style: "currency",
+      currency: "PHP",
+      maximumFractionDigits: 0,
+    }
+  ).format(numericAmount);
 }
 
-function ExtractionScreen({
-  transcript,
+function formatDate(date) {
+  if (!date) {
+    return "";
+  }
+
+  return new Date(
+    `${date}T00:00:00`
+  ).toLocaleDateString(
+    "en-PH",
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }
+  );
+}
+
+/**
+ * Handles JSON and unexpected Vercel responses.
+ *
+ * If an API route accidentally returns an HTML
+ * 404/error page, the screen will now show a
+ * useful error instead of failing while parsing JSON.
+ */
+async function readApiResponse(response) {
+  const contentType =
+    response.headers.get(
+      "content-type"
+    ) || "";
+
+  if (
+    contentType.includes(
+      "application/json"
+    )
+  ) {
+    return response.json();
+  }
+
+  const text =
+    await response.text();
+
+  console.error(
+    "Unexpected API response:",
+    text
+  );
+
+  throw new Error(
+    `The API returned an unexpected response (${response.status}). Check the Vercel API deployment.`
+  );
+}
+
+export default function ExtractionScreen({
+  recapData,
   onBack,
-  onContinueToReview,
+  onContinue,
+  onNavigate,
 }) {
+  /*
+    Obtain the transcript from recapData first.
+
+    sessionStorage is used only as a backup in
+    case the screen refreshes during development.
+  */
+
   const initialTranscript =
-    transcript ||
-    sessionStorage.getItem("dryveTranscript") ||
+    recapData?.transcript ||
+    sessionStorage.getItem(
+      "dryveTranscript"
+    ) ||
     "";
 
-  const [editedTranscript, setEditedTranscript] =
+  const initialDate =
+    recapData?.date ||
+    recapData?.businessDate ||
+    sessionStorage.getItem(
+      "dryveBusinessDate"
+    ) ||
+    "";
+
+  const [transcript, setTranscript] =
+    useState(initialTranscript);
+
+  const [savedTranscript, setSavedTranscript] =
     useState(initialTranscript);
 
   const [isEditing, setIsEditing] =
@@ -74,11 +140,68 @@ function ExtractionScreen({
   const [error, setError] =
     useState("");
 
-  const handleSaveTranscript = () => {
-    const cleaned =
-      editedTranscript.trim();
+  const [successMessage, setSuccessMessage] =
+    useState("");
 
-    if (!cleaned) {
+  /*
+    If recapData changes because a new recap
+    was uploaded, refresh this screen.
+  */
+
+  useEffect(() => {
+    const nextTranscript =
+      recapData?.transcript ||
+      sessionStorage.getItem(
+        "dryveTranscript"
+      ) ||
+      "";
+
+    setTranscript(nextTranscript);
+    setSavedTranscript(nextTranscript);
+
+    setTransactions([]);
+    setError("");
+    setSuccessMessage("");
+    setIsEditing(false);
+  }, [recapData]);
+
+  const requiresReviewCount =
+    useMemo(
+      () =>
+        transactions.filter(
+          (transaction) =>
+            transaction.needs_review
+        ).length,
+      [transactions]
+    );
+
+  function clearMessages() {
+    setError("");
+    setSuccessMessage("");
+  }
+
+  function handleEditTranscript() {
+    clearMessages();
+    setIsEditing(true);
+  }
+
+  function handleCancelEdit() {
+    clearMessages();
+
+    setTranscript(
+      savedTranscript
+    );
+
+    setIsEditing(false);
+  }
+
+  function handleSaveTranscript() {
+    clearMessages();
+
+    const cleanedTranscript =
+      transcript.trim();
+
+    if (!cleanedTranscript) {
       setError(
         "Transcript cannot be empty."
       );
@@ -86,382 +209,604 @@ function ExtractionScreen({
       return;
     }
 
-    sessionStorage.setItem(
-      "dryveTranscript",
-      cleaned
+    setTranscript(
+      cleanedTranscript
     );
 
-    setError("");
-    setIsEditing(false);
-  };
+    setSavedTranscript(
+      cleanedTranscript
+    );
 
-  const extractTransactions = async () => {
+    sessionStorage.setItem(
+      "dryveTranscript",
+      cleanedTranscript
+    );
+
+    setIsEditing(false);
+
+    /*
+      Any previously extracted transactions
+      are now stale because the transcript changed.
+    */
+
+    setTransactions([]);
+
+    setSuccessMessage(
+      "Transcript changes saved. Extract the transactions again to use the updated text."
+    );
+  }
+
+  async function handleExtractTransactions() {
+    clearMessages();
+
     const cleanedTranscript =
-      editedTranscript.trim();
+      transcript.trim();
 
     if (!cleanedTranscript) {
       setError(
-        "Please provide a transcript before extraction."
+        "A transcript is required before extracting transactions."
       );
 
       return;
     }
 
-    setError("");
+    /*
+      Automatically save any edited transcript
+      before sending it to the backend.
+    */
+
+    setSavedTranscript(
+      cleanedTranscript
+    );
+
+    setTranscript(
+      cleanedTranscript
+    );
+
+    sessionStorage.setItem(
+      "dryveTranscript",
+      cleanedTranscript
+    );
+
+    setIsEditing(false);
     setIsExtracting(true);
     setTransactions([]);
 
     try {
-      sessionStorage.setItem(
-        "dryveTranscript",
-        cleanedTranscript
-      );
-
       const response = await fetch(
         "/api/extract-transactions",
         {
           method: "POST",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify({
-            transcript: cleanedTranscript,
+            transcript:
+              cleanedTranscript,
           }),
         }
       );
 
-      const result =
-        await response.json();
+      const data =
+        await readApiResponse(
+          response
+        );
 
-      if (!response.ok) {
+      if (
+        !response.ok ||
+        !data.success
+      ) {
         throw new Error(
-          result.error ||
-          "Extraction failed."
+          data.error ||
+            data.details ||
+            "Unable to extract transactions."
         );
       }
 
-      const extracted =
-        result.transactions || [];
+      const extractedTransactions =
+        Array.isArray(
+          data.transactions
+        )
+          ? data.transactions
+          : [];
 
-      setTransactions(extracted);
+      if (
+        extractedTransactions.length === 0
+      ) {
+        throw new Error(
+          "No accounting transactions were detected in this recap."
+        );
+      }
 
-      sessionStorage.setItem(
-        "dryveExtractedTransactions",
-        JSON.stringify({
-          date:
-            new Date()
-              .toISOString()
-              .split("T")[0],
+      const normalizedTransactions =
+        extractedTransactions.map(
+          (
+            transaction,
+            index
+          ) => ({
+            id:
+              transaction.id ||
+              index + 1,
 
-          transcript:
-            cleanedTranscript,
+            currency: "PHP",
 
-          transactions: extracted,
-        })
+            type:
+              transaction.type ||
+              "Operating Expense",
+
+            account:
+              transaction.account ||
+              "Miscellaneous",
+
+            description:
+              transaction.description ||
+              "Unspecified transaction",
+
+            amount:
+              transaction.amount ===
+                null ||
+              transaction.amount ===
+                undefined ||
+              transaction.amount ===
+                ""
+                ? null
+                : Number(
+                    transaction.amount
+                  ),
+
+            needs_review:
+              Boolean(
+                transaction.needs_review
+              ),
+
+            review_reason:
+              transaction.review_reason ||
+              null,
+          })
+        );
+
+      setTransactions(
+        normalizedTransactions
       );
-    } catch (err) {
-      console.error(err);
+
+      setSuccessMessage(
+        `${normalizedTransactions.length} transaction${
+          normalizedTransactions.length ===
+          1
+            ? ""
+            : "s"
+        } extracted successfully.`
+      );
+    } catch (requestError) {
+      console.error(
+        "Transaction extraction failed:",
+        requestError
+      );
+
+      setTransactions([]);
 
       setError(
-        err.message ||
-        "Unable to extract transactions."
+        requestError?.message ||
+          "Unable to connect to the transaction extraction service."
       );
     } finally {
       setIsExtracting(false);
     }
-  };
+  }
 
-  const handleContinue = () => {
-    if (!transactions.length) {
+  function handleContinueToReview() {
+    clearMessages();
+
+    if (
+      transactions.length === 0
+    ) {
       setError(
-        "Extract transactions before continuing."
+        "Extract the transactions before continuing to review."
       );
 
       return;
     }
 
-    onContinueToReview?.({
-      date:
-        new Date()
-          .toISOString()
-          .split("T")[0],
+    onContinue?.({
+      date: initialDate,
+      businessDate:
+        initialDate,
+
+      currency: "PHP",
 
       transcript:
-        editedTranscript,
+        savedTranscript.trim(),
 
       transactions,
     });
-  };
+  }
+
+  function handleBottomNavigation(tab) {
+    if (onNavigate) {
+      onNavigate(tab);
+    }
+  }
 
   return (
     <div className="app-shell">
-      <main className="phone-app">
+      <AppHeader />
 
-        <AppHeader onBack={onBack} />
-
-        <section className="content extraction-content">
-
-          <div className="page-heading">
-            <h1>AI Extraction</h1>
-
-            <p className="screen-description">
-              Review the transcription before
-              extracting financial transactions.
-            </p>
-          </div>
-
-          {/* TRANSCRIPT */}
-
-          <section className="transcript-review-card">
-
-            <div className="transcript-review-header">
-
-              <div className="transcript-title">
-                <FileText size={20} />
-
-                <strong>
-                  Voice Transcript
-                </strong>
-              </div>
-
-              {!isEditing && (
-                <button
-                  type="button"
-                  className="edit-transcript-button"
-                  onClick={() =>
-                    setIsEditing(true)
-                  }
-                >
-                  <Pencil size={15} />
-
-                  Edit
-                </button>
-              )}
-
-            </div>
-
-            {isEditing ? (
-              <>
-                <textarea
-                  className="transcript-editor"
-                  value={editedTranscript}
-                  onChange={(event) =>
-                    setEditedTranscript(
-                      event.target.value
-                    )
-                  }
-                  rows={8}
-                />
-
-                <div className="transcript-actions">
-
-                  <button
-                    type="button"
-                    className="cancel-transcript-button"
-                    onClick={() =>
-                      setIsEditing(false)
-                    }
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="button"
-                    className="save-transcript-button"
-                    onClick={
-                      handleSaveTranscript
-                    }
-                  >
-                    Save Changes
-                  </button>
-
-                </div>
-              </>
-            ) : (
-              <p className="transcript-text">
-                {editedTranscript}
-              </p>
-            )}
-
-          </section>
-
-          {/* INFORMATION */}
-
-          <div className="review-helper-card">
-            <CheckCircle2 size={18} />
-
-            <span>
-              Correct names, amounts, or words
-              that were misheard before continuing.
-            </span>
-          </div>
-
-          {/* EXTRACTION BUTTON */}
-
+      <main className="screen-content extraction-screen">
+        <section className="page-heading extraction-page-heading">
           <button
             type="button"
-            className="extract-ai-button"
-            onClick={
-              extractTransactions
-            }
-            disabled={
-              isExtracting ||
-              isEditing
-            }
+            className="back-button"
+            onClick={onBack}
           >
+            <ArrowLeft
+              size={19}
+              aria-hidden="true"
+            />
 
-            {isExtracting ? (
-              <>
-                <LoaderCircle
-                  size={19}
-                  className="processing-spinner"
-                />
-
-                Extracting Transactions...
-              </>
-            ) : (
-              <>
-                <Sparkles size={19} />
-
-                Extract Transactions
-              </>
-            )}
-
+            Back
           </button>
 
-          {error && (
-            <div className="extraction-error">
-              <AlertTriangle size={18} />
+          <div>
+            <p className="eyebrow">
+              AI EXTRACTION
+            </p>
 
-              <span>{error}</span>
+            <h1>
+              Review Transcript
+            </h1>
+
+            <p className="page-description">
+              Check what the transcription service
+              understood before creating financial
+              transactions.
+            </p>
+          </div>
+        </section>
+
+        {initialDate && (
+          <div className="business-date-banner">
+            <span>
+              Business Date
+            </span>
+
+            <strong>
+              {formatDate(
+                initialDate
+              )}
+            </strong>
+          </div>
+        )}
+
+        <section className="extraction-card transcript-card">
+          <div className="section-heading-row">
+            <div>
+              <h2>
+                Transcript
+              </h2>
+
+              <p>
+                Correct names, amounts or
+                transcription mistakes before
+                extraction.
+              </p>
             </div>
-          )}
 
-          {/* RESULTS */}
+            <FileText
+              size={22}
+              aria-hidden="true"
+            />
+          </div>
 
-          {transactions.length > 0 && (
-            <section className="extracted-results">
+          {isEditing ? (
+            <>
+              <textarea
+                className="transcript-textarea"
+                value={transcript}
+                rows={10}
+                disabled={
+                  isExtracting
+                }
+                onChange={(
+                  event
+                ) => {
+                  setTranscript(
+                    event.target
+                      .value
+                  );
 
-              <div className="results-heading">
+                  clearMessages();
+                }}
+              />
 
-                <div>
-                  <h2>
-                    Detected Transactions
-                  </h2>
-
-                  <p>
-                    {transactions.length} transaction
-                    {transactions.length !== 1
-                      ? "s"
-                      : ""}{" "}
-                    found
-                  </p>
-                </div>
-
-              </div>
-
-              <div className="transaction-list">
-
-                {transactions.map(
-                  (transaction) => {
-
-                    const Icon =
-                      getTransactionIcon(
-                        transaction.account
-                      );
-
-                    return (
-                      <article
-                        key={transaction.id}
-                        className={`extracted-transaction-card ${
-                          transaction.needs_review
-                            ? "transaction-needs-review"
-                            : ""
-                        }`}
-                      >
-
-                        <div className="transaction-icon">
-                          <Icon size={20} />
-                        </div>
-
-                        <div className="transaction-info">
-
-                          <span className="transaction-account">
-                            {transaction.account}
-                          </span>
-
-                          <strong>
-                            {transaction.description}
-                          </strong>
-
-                          <span className="transaction-type">
-                            {transaction.type}
-                          </span>
-
-                          {transaction.needs_review && (
-                            <span className="needs-review-label">
-                              <AlertTriangle
-                                size={13}
-                              />
-
-                              Needs Review
-                            </span>
-                          )}
-
-                          {transaction.review_reason && (
-                            <span className="review-reason">
-                              {
-                                transaction.review_reason
-                              }
-                            </span>
-                          )}
-
-                        </div>
-
-                        <div className="transaction-amount">
-                          {formatCurrency(
-                            transaction.amount
-                          )}
-                        </div>
-
-                      </article>
-                    );
+              <div className="transcript-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={
+                    isExtracting
                   }
-                )}
+                  onClick={
+                    handleCancelEdit
+                  }
+                >
+                  Cancel
+                </button>
 
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={
+                    isExtracting ||
+                    !transcript.trim()
+                  }
+                  onClick={
+                    handleSaveTranscript
+                  }
+                >
+                  <Save
+                    size={18}
+                    aria-hidden="true"
+                  />
+
+                  Save Transcript
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="transcript-preview">
+                {savedTranscript ? (
+                  <p>
+                    {savedTranscript}
+                  </p>
+                ) : (
+                  <p className="muted-text">
+                    No transcript is
+                    available.
+                  </p>
+                )}
               </div>
 
-            </section>
-          )}
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={
+                  isExtracting
+                }
+                onClick={
+                  handleEditTranscript
+                }
+              >
+                <Pencil
+                  size={17}
+                  aria-hidden="true"
+                />
 
-          {transactions.length > 0 && (
+                Edit Transcript
+              </button>
+            </>
+          )}
+        </section>
+
+        <div className="currency-notice">
+          <strong>
+            ₱ Philippine Pesos (PHP)
+          </strong>
+
+          <span>
+            All monetary amounts in this
+            prototype are treated as PHP.
+          </span>
+        </div>
+
+        {error && (
+          <div
+            className="status-message error-message"
+            role="alert"
+          >
+            <AlertTriangle
+              size={20}
+              aria-hidden="true"
+            />
+
+            <div>
+              <strong>
+                Unable to continue
+              </strong>
+
+              <p>
+                {error}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {successMessage && (
+          <div
+            className="status-message success-message"
+            role="status"
+          >
+            <CheckCircle2
+              size={20}
+              aria-hidden="true"
+            />
+
+            <div>
+              <strong>
+                Extraction ready
+              </strong>
+
+              <p>
+                {successMessage}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="primary-button full-width-button"
+          disabled={
+            isExtracting ||
+            !transcript.trim() ||
+            isEditing
+          }
+          onClick={
+            handleExtractTransactions
+          }
+        >
+          {isExtracting ? (
+            <>
+              <LoaderCircle
+                className="spin"
+                size={19}
+                aria-hidden="true"
+              />
+
+              Extracting Transactions...
+            </>
+          ) : (
+            <>
+              <Sparkles
+                size={19}
+                aria-hidden="true"
+              />
+
+              Extract Transactions
+            </>
+          )}
+        </button>
+
+        {transactions.length >
+          0 && (
+          <section className="extraction-card extracted-transactions-card">
+            <div className="section-heading-row">
+              <div>
+                <h2>
+                  Extracted Transactions
+                </h2>
+
+                <p>
+                  These are preliminary.
+                  You can make final
+                  corrections on the next
+                  screen.
+                </p>
+              </div>
+
+              <span className="transaction-count-badge">
+                {
+                  transactions.length
+                }
+              </span>
+            </div>
+
+            {requiresReviewCount >
+              0 && (
+              <div className="review-warning-banner">
+                <AlertTriangle
+                  size={18}
+                  aria-hidden="true"
+                />
+
+                <span>
+                  {
+                    requiresReviewCount
+                  }{" "}
+                  transaction
+                  {requiresReviewCount ===
+                  1
+                    ? ""
+                    : "s"}{" "}
+                  require human
+                  review.
+                </span>
+              </div>
+            )}
+
+            <div className="transaction-preview-list">
+              {transactions.map(
+                (
+                  transaction
+                ) => (
+                  <article
+                    key={
+                      transaction.id
+                    }
+                    className={`transaction-preview-item ${
+                      transaction.needs_review
+                        ? "needs-review"
+                        : ""
+                    }`}
+                  >
+                    <div className="transaction-preview-top">
+                      <div>
+                        <span className="transaction-type-label">
+                          {
+                            transaction.type
+                          }
+                        </span>
+
+                        <h3>
+                          {
+                            transaction.account
+                          }
+                        </h3>
+                      </div>
+
+                      <strong className="transaction-amount">
+                        {formatCurrency(
+                          transaction.amount
+                        )}
+                      </strong>
+                    </div>
+
+                    <p className="transaction-description">
+                      {
+                        transaction.description
+                      }
+                    </p>
+
+                    {transaction.needs_review && (
+                      <div className="transaction-review-reason">
+                        <AlertTriangle
+                          size={15}
+                          aria-hidden="true"
+                        />
+
+                        <span>
+                          {transaction.review_reason ||
+                            "This transaction needs review."}
+                        </span>
+                      </div>
+                    )}
+                  </article>
+                )
+              )}
+            </div>
+
             <button
               type="button"
-              className="continue-button"
+              className="primary-button full-width-button"
               onClick={
-                handleContinue
+                handleContinueToReview
               }
             >
               Continue to Review
             </button>
-          )}
-
-        </section>
-
-        <BottomNav
-          activeTab="extract"
-          onChange={(tab) => {
-            if (tab === "recap") {
-              onBack?.();
-            }
-          }}
-        />
-
+          </section>
+        )}
       </main>
+
+      <BottomNav
+        activeTab="extract"
+        onNavigate={
+          handleBottomNavigation
+        }
+      />
     </div>
   );
 }
-
-export default ExtractionScreen;

@@ -2557,3 +2557,828 @@ button {
 .nav-item span {
   font-size: 9px;
 }
+/* =========================================================
+   VERCEL / STAGING UI FIX
+   Updated RecapScreen + ExtractionScreen compatibility
+========================================================= */
+
+.app-shell {
+  width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #eef2f7;
+}
+
+.app-shell > .app-header,
+.app-shell > .screen-content,
+.app-shell > .bottom-nav {
+  width: 100%;
+  max-width: 430px;
+}
+
+/* =========================================================
+   SHARED SCREEN CONTENT
+========================================================= */
+
+.screen-content {
+  width: 100%;
+  max-width: 430px;
+  flex: 1;
+
+  padding: 18px 22px 110px;
+
+  background: #ffffff;
+}
+
+.page-heading {
+  text-align: left;
+}
+
+.page-heading h1 {
+  margin: 6px 0 0;
+
+  color: #111827;
+
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+}
+
+.page-heading .eyebrow {
+  margin: 0;
+
+  color: #0a84ff;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1.2px;
+}
+
+.page-description {
+  margin: 9px 0 0;
+
+  color: #718096;
+
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* =========================================================
+   SHARED CARDS
+========================================================= */
+
+.recap-card,
+.extraction-card {
+  width: 100%;
+
+  margin-top: 18px;
+  padding: 16px;
+
+  border: 1px solid #e5eaf0;
+  border-radius: 18px;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 4px 14px rgba(15, 23, 42, 0.035);
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 14px;
+
+  margin-bottom: 14px;
+}
+
+.section-heading-row > div {
+  min-width: 0;
+}
+
+.section-heading-row h2 {
+  margin: 0;
+
+  color: #111827;
+
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.section-heading-row p {
+  margin: 4px 0 0;
+
+  color: #94a3b8;
+
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.section-heading-row > svg {
+  flex-shrink: 0;
+
+  color: #0a84ff;
+}
+
+/* =========================================================
+   FORM FIELDS
+========================================================= */
+
+.field-label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #64748b;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.business-date-input {
+  width: 100%;
+  min-height: 46px;
+
+  padding: 0 12px;
+
+  border: 1px solid #dfe6ed;
+  border-radius: 12px;
+
+  outline: none;
+
+  background: #ffffff;
+  color: #111827;
+
+  font: inherit;
+  font-size: 13px;
+}
+
+.business-date-input:focus {
+  border-color: #0a84ff;
+
+  box-shadow:
+    0 0 0 3px rgba(10, 132, 255, 0.08);
+}
+
+/* =========================================================
+   RECAP UPLOAD
+========================================================= */
+
+.audio-upload-area {
+  width: 100%;
+  min-height: 150px;
+
+  padding: 24px 18px;
+
+  border: 1px dashed #bcd8f4;
+  border-radius: 17px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  background: #f7fbff;
+
+  color: #0a84ff;
+
+  cursor: pointer;
+}
+
+.audio-upload-area:hover {
+  background: #f0f8ff;
+}
+
+.audio-upload-area:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.audio-upload-area strong {
+  color: #1e293b;
+
+  font-size: 14px;
+}
+
+.audio-upload-area span {
+  color: #94a3b8;
+
+  font-size: 11px;
+}
+
+.upload-icon {
+  width: 48px;
+  height: 48px;
+
+  margin-bottom: 3px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 14px;
+
+  background: #eaf4ff;
+
+  color: #0a84ff;
+}
+
+/* =========================================================
+   SELECTED AUDIO
+========================================================= */
+
+.selected-audio-card {
+  width: 100%;
+  margin-top: 0;
+
+  padding: 14px;
+
+  display: block;
+
+  border: 1px solid #e5eaf0;
+  border-radius: 16px;
+
+  background: #ffffff;
+}
+
+.selected-audio-main {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 36px;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+.selected-audio-icon {
+  width: 42px;
+  height: 42px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 12px;
+
+  background: #eef7ff;
+
+  color: #0a84ff;
+}
+
+.selected-audio-info {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.selected-audio-info strong {
+  overflow: hidden;
+
+  color: #111827;
+
+  font-size: 13px;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.selected-audio-info span {
+  color: #94a3b8;
+
+  font-size: 10px;
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+
+  padding: 0;
+
+  border: none;
+  border-radius: 10px;
+
+  display: grid;
+  place-items: center;
+
+  background: #f3f6f8;
+
+  color: #64748b;
+
+  cursor: pointer;
+}
+
+.audio-preview {
+  width: 100%;
+
+  margin-top: 13px;
+}
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.primary-button,
+.secondary-button {
+  min-height: 48px;
+
+  padding: 0 15px;
+
+  border-radius: 14px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.primary-button {
+  border: none;
+
+  background: #0a84ff;
+  color: #ffffff;
+
+  box-shadow:
+    0 9px 22px rgba(10, 132, 255, 0.16);
+}
+
+.secondary-button {
+  border: 1px solid #dfe7ef;
+
+  background: #ffffff;
+  color: #475569;
+}
+
+.selected-audio-card .secondary-button {
+  width: 100%;
+
+  margin-top: 12px;
+}
+
+.full-width-button {
+  width: 100%;
+
+  margin-top: 17px;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.48;
+
+  cursor: default;
+
+  box-shadow: none;
+}
+
+/* =========================================================
+   STATUS MESSAGES
+========================================================= */
+
+.status-message {
+  width: 100%;
+
+  margin-top: 14px;
+  padding: 13px;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 9px;
+
+  border-radius: 14px;
+}
+
+.status-message > svg {
+  flex-shrink: 0;
+
+  margin-top: 1px;
+}
+
+.status-message div {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.status-message strong {
+  font-size: 12px;
+}
+
+.status-message p {
+  margin: 0;
+
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.error-message {
+  background: #fff2f2;
+
+  color: #b42318;
+}
+
+.success-message {
+  background: #ecfdf3;
+
+  color: #15803d;
+}
+
+.privacy-note {
+  margin-top: 13px;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 7px;
+
+  color: #94a3b8;
+
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.privacy-note svg {
+  flex-shrink: 0;
+
+  color: #16a34a;
+}
+
+/* =========================================================
+   EXTRACTION SCREEN
+========================================================= */
+
+.extraction-page-heading {
+  position: relative;
+}
+
+.back-button {
+  margin-bottom: 16px;
+  padding: 0;
+
+  border: none;
+
+  display: inline-flex;
+  align-items: center;
+
+  gap: 6px;
+
+  background: transparent;
+
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.business-date-banner {
+  margin-top: 16px;
+  padding: 11px 13px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  border-radius: 13px;
+
+  background: #f1f7fd;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+.business-date-banner strong {
+  color: #0a67ba;
+
+  font-size: 11px;
+}
+
+.transcript-card {
+  margin-top: 18px;
+}
+
+.transcript-preview {
+  min-height: 120px;
+
+  padding: 13px;
+
+  border: 1px solid #e3e9ef;
+  border-radius: 13px;
+
+  background: #f8fafc;
+}
+
+.transcript-preview p {
+  margin: 0;
+
+  color: #475569;
+
+  font-size: 13px;
+  line-height: 1.65;
+
+  white-space: pre-wrap;
+}
+
+.transcript-preview .muted-text {
+  color: #94a3b8;
+}
+
+.transcript-textarea {
+  width: 100%;
+  min-height: 170px;
+
+  padding: 13px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 13px;
+
+  outline: none;
+  resize: vertical;
+
+  background: #f8fafc;
+
+  color: #334155;
+
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.transcript-textarea:focus {
+  border-color: #0a84ff;
+
+  box-shadow:
+    0 0 0 3px rgba(10, 132, 255, 0.08);
+}
+
+.transcript-actions {
+  margin-top: 11px;
+
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 8px;
+}
+
+.currency-notice {
+  margin-top: 13px;
+  padding: 11px 13px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+
+  border-radius: 13px;
+
+  background: #f4f8fc;
+
+  color: #64748b;
+}
+
+.currency-notice strong {
+  color: #334155;
+
+  font-size: 11px;
+}
+
+.currency-notice span {
+  font-size: 10px;
+}
+
+/* =========================================================
+   EXTRACTION RESULTS
+========================================================= */
+
+.extracted-transactions-card {
+  margin-top: 18px;
+}
+
+.transaction-count-badge {
+  min-width: 28px;
+  height: 28px;
+
+  padding: 0 8px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 999px;
+
+  background: #eaf4ff;
+
+  color: #0a84ff;
+
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.review-warning-banner {
+  margin-bottom: 12px;
+  padding: 10px 11px;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 7px;
+
+  border-radius: 12px;
+
+  background: #fff7e8;
+
+  color: #996100;
+
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.transaction-preview-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 10px;
+}
+
+.transaction-preview-item {
+  padding: 13px;
+
+  border: 1px solid #e8edf2;
+  border-radius: 15px;
+
+  background: #ffffff;
+}
+
+.transaction-preview-item.needs-review {
+  border-color: #f2c96d;
+
+  background: #fffdf7;
+}
+
+.transaction-preview-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 12px;
+}
+
+.transaction-preview-top > div {
+  min-width: 0;
+}
+
+.transaction-preview-top h3 {
+  margin: 3px 0 0;
+
+  color: #1e293b;
+
+  font-size: 13px;
+}
+
+.transaction-type-label {
+  color: #0a84ff;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.transaction-preview-item .transaction-amount {
+  flex-shrink: 0;
+
+  color: #0f172a;
+
+  font-size: 12px;
+  font-weight: 750;
+
+  white-space: nowrap;
+}
+
+.transaction-description {
+  margin: 7px 0 0;
+
+  color: #64748b;
+
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.transaction-review-reason {
+  margin-top: 8px;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 6px;
+
+  color: #a16207;
+
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* =========================================================
+   LOADING ANIMATION
+========================================================= */
+
+.spin {
+  animation: staging-spin 0.8s linear infinite;
+}
+
+@keyframes staging-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   BOTTOM NAV POSITION FIX
+========================================================= */
+
+.bottom-nav {
+  position: fixed;
+
+  left: 50%;
+  right: auto;
+  bottom: 0;
+
+  width: 100%;
+  max-width: 430px;
+
+  transform: translateX(-50%);
+
+  z-index: 20;
+
+  background: rgba(255, 255, 255, 0.97);
+
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* =========================================================
+   DESKTOP PREVIEW
+========================================================= */
+
+@media (min-width: 600px) {
+  .app-shell {
+    padding: 30px 0;
+  }
+
+  .app-shell > .app-header,
+  .app-shell > .screen-content {
+    max-width: 430px;
+  }
+
+  .app-header {
+    border-radius: 32px 32px 0 0;
+
+    background: #ffffff;
+  }
+
+  .screen-content {
+    min-height: 750px;
+  }
+}
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 370px) {
+  .screen-content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .page-heading h1 {
+    font-size: 25px;
+  }
+
+  .transaction-preview-top {
+    flex-direction: column;
+  }
+
+  .transaction-preview-item .transaction-amount {
+    align-self: flex-start;
+  }
+}
