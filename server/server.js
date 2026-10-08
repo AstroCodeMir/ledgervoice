@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const fs = require("fs");
-const path = require("path");
+const os = require("os");
 
 require("dotenv").config();
 
@@ -12,9 +12,7 @@ require("dotenv").config();
 
 console.log(
   "Groq key loaded:",
-  Boolean(
-    process.env.GROQ_API_KEY
-  )
+  Boolean(process.env.GROQ_API_KEY)
 );
 
 /* =========================================
@@ -23,9 +21,7 @@ console.log(
 
 const app = express();
 
-const PORT =
-  process.env.PORT ||
-  3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(
   cors({
@@ -40,41 +36,36 @@ app.use(
 );
 
 /* =========================================
-   UPLOAD DIRECTORY
+   TEMPORARY UPLOAD DIRECTORY
+
+   Vercel serverless functions should use
+   the system temporary directory.
+
+   For normal local development, os.tmpdir()
+   also works safely.
 ========================================= */
 
-const uploadDirectory =
-  path.join(
-    __dirname,
-    "uploads"
-  );
+const uploadDirectory = os.tmpdir();
 
-if (
-  !fs.existsSync(
-    uploadDirectory
-  )
-) {
-  fs.mkdirSync(
-    uploadDirectory,
-    {
-      recursive: true,
-    }
-  );
-}
+console.log(
+  "Temporary upload directory:",
+  uploadDirectory
+);
 
 /* =========================================
    MULTER
+
+   Vercel has a request payload limit.
+
+   Keep uploaded recordings below 4 MB for
+   this deployment.
 ========================================= */
 
 const upload = multer({
   dest: uploadDirectory,
 
   limits: {
-    /*
-      25 MB maximum
-    */
-    fileSize:
-      25 * 1024 * 1024,
+    fileSize: 4 * 1024 * 1024,
   },
 });
 
@@ -117,13 +108,9 @@ const ALLOWED_TYPES = [
    ACCOUNT → TYPE
 ========================================= */
 
-function getExpectedType(
-  account
-) {
+function getExpectedType(account) {
   if (
-    REVENUE_ACCOUNTS.includes(
-      account
-    )
+    REVENUE_ACCOUNTS.includes(account)
   ) {
     return "Revenue";
   }
@@ -147,11 +134,13 @@ function normalizeTranscriptCurrency(
   text = ""
 ) {
   return text
+
     /*
       If speech-to-text/API somehow
       produces a dollar symbol,
       Dryve accounting should use PHP.
     */
+
     .replace(/\$/g, "₱")
 
     /*
@@ -159,6 +148,7 @@ function normalizeTranscriptCurrency(
       because all Dryve accounting values
       are PHP for this prototype.
     */
+
     .replace(
       /\bUS dollars?\b/gi,
       "Philippine pesos"
@@ -176,9 +166,7 @@ function normalizeTranscriptCurrency(
    AMOUNT NORMALIZATION
 ========================================= */
 
-function normalizeAmount(
-  value
-) {
+function normalizeAmount(value) {
   if (
     value === null ||
     value === undefined ||
@@ -217,6 +205,22 @@ function normalizeAmount(
 }
 
 /* =========================================
+   ROOT
+========================================= */
+
+app.get(
+  "/",
+  (req, res) => {
+    res.json({
+      success: true,
+      message:
+        "Dryve PH Voice-to-Income API is running.",
+      currency: "PHP",
+    });
+  }
+);
+
+/* =========================================
    HEALTH CHECK
 ========================================= */
 
@@ -244,8 +248,7 @@ app.post(
   upload.single("audio"),
 
   async (req, res) => {
-    let uploadedPath =
-      null;
+    let uploadedPath = null;
 
     try {
       /* -----------------------------
@@ -282,6 +285,10 @@ app.post(
 
       console.log(
         `Transcribing: ${req.file.originalname}`
+      );
+
+      console.log(
+        `Audio size: ${req.file.size} bytes`
       );
 
       /* -----------------------------
@@ -437,6 +444,28 @@ app.post(
         error
       );
 
+      /*
+        Multer error for files that
+        exceed the configured size.
+      */
+
+      if (
+        error.code ===
+        "LIMIT_FILE_SIZE"
+      ) {
+        return res
+          .status(413)
+          .json({
+            success: false,
+
+            error:
+              "Audio recording is too large.",
+
+            details:
+              "Please upload an audio file smaller than 4 MB.",
+          });
+      }
+
       return res
         .status(500)
         .json({
@@ -462,6 +491,10 @@ app.post(
         try {
           fs.unlinkSync(
             uploadedPath
+          );
+
+          console.log(
+            "Temporary audio file deleted."
           );
         } catch (
           cleanupError
@@ -1062,20 +1095,33 @@ app.use(
 );
 
 /* =========================================
-   START SERVER
+   LOCAL DEVELOPMENT
+
+   Vercel imports this Express app instead
+   of opening its own port.
+
+   When server.js is executed directly with
+   npm start, it still runs on port 3001.
 ========================================= */
 
-app.listen(
-  PORT,
-  "0.0.0.0",
+if (require.main === module) {
+  app.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
+      console.log(
+        `Dryve backend running at http://localhost:${PORT}`
+      );
 
-  () => {
-    console.log(
-      `Dryve backend running at http://localhost:${PORT}`
-    );
+      console.log(
+        `Health check: http://localhost:${PORT}/api/health`
+      );
+    }
+  );
+}
 
-    console.log(
-      `Health check: http://localhost:${PORT}/api/health`
-    );
-  }
-);
+/* =========================================
+   VERCEL EXPORT
+========================================= */
+
+module.exports = app;
