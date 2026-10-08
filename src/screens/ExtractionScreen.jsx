@@ -13,6 +13,32 @@ import {
 import AppHeader from "../components/AppHeader";
 import BottomNav from "../components/BottomNav";
 
+/* =========================================
+   API CONFIGURATION
+
+   LOCAL:
+   Leave VITE_API_BASE_URL empty and use
+   the Vite proxy.
+
+   VERCEL FRONTEND:
+   Set:
+
+   VITE_API_BASE_URL=
+   https://your-backend.vercel.app
+========================================= */
+
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || ""
+).replace(/\/$/, "");
+
+function buildApiUrl(path) {
+  return `${API_BASE_URL}${path}`;
+}
+
+/* =========================================
+   CURRENCY FORMAT
+========================================= */
+
 function formatCurrency(amount) {
   if (
     amount === null ||
@@ -43,6 +69,10 @@ function formatCurrency(amount) {
   ).format(numericAmount);
 }
 
+/* =========================================
+   DATE FORMAT
+========================================= */
+
 function formatDate(date) {
   if (!date) {
     return "";
@@ -60,14 +90,13 @@ function formatDate(date) {
   );
 }
 
-/**
- * Handles JSON and unexpected Vercel responses.
- *
- * If an API route accidentally returns an HTML
- * 404/error page, the screen will now show a
- * useful error instead of failing while parsing JSON.
- */
-async function readApiResponse(response) {
+/* =========================================
+   SAFE API RESPONSE READER
+========================================= */
+
+async function readApiResponse(
+  response
+) {
   const contentType =
     response.headers.get(
       "content-type"
@@ -85,14 +114,35 @@ async function readApiResponse(response) {
     await response.text();
 
   console.error(
-    "Unexpected API response:",
-    text
+    "Unexpected extraction API response:",
+    {
+      status:
+        response.status,
+
+      url:
+        response.url,
+
+      body:
+        text,
+    }
   );
 
+  if (
+    response.status === 404
+  ) {
+    throw new Error(
+      "Transaction extraction API endpoint was not found. Check the deployed backend URL."
+    );
+  }
+
   throw new Error(
-    `The API returned an unexpected response (${response.status}). Check the Vercel API deployment.`
+    `The API returned an unexpected response (${response.status}).`
   );
 }
+
+/* =========================================
+   COMPONENT
+========================================= */
 
 export default function ExtractionScreen({
   recapData,
@@ -101,10 +151,10 @@ export default function ExtractionScreen({
   onNavigate,
 }) {
   /*
-    Obtain the transcript from recapData first.
+    Use recapData first.
 
-    sessionStorage is used only as a backup in
-    case the screen refreshes during development.
+    sessionStorage is a backup in case
+    the page refreshes.
   */
 
   const initialTranscript =
@@ -122,31 +172,48 @@ export default function ExtractionScreen({
     ) ||
     "";
 
-  const [transcript, setTranscript] =
-    useState(initialTranscript);
+  const [
+    transcript,
+    setTranscript,
+  ] = useState(
+    initialTranscript
+  );
 
-  const [savedTranscript, setSavedTranscript] =
-    useState(initialTranscript);
+  const [
+    savedTranscript,
+    setSavedTranscript,
+  ] = useState(
+    initialTranscript
+  );
 
-  const [isEditing, setIsEditing] =
-    useState(false);
+  const [
+    isEditing,
+    setIsEditing,
+  ] = useState(false);
 
-  const [isExtracting, setIsExtracting] =
-    useState(false);
+  const [
+    isExtracting,
+    setIsExtracting,
+  ] = useState(false);
 
-  const [transactions, setTransactions] =
-    useState([]);
+  const [
+    transactions,
+    setTransactions,
+  ] = useState([]);
 
-  const [error, setError] =
-    useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
 
-  const [successMessage, setSuccessMessage] =
-    useState("");
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] = useState("");
 
-  /*
-    If recapData changes because a new recap
-    was uploaded, refresh this screen.
-  */
+  /* =========================================
+     NEW RECAP DATA
+  ========================================= */
 
   useEffect(() => {
     const nextTranscript =
@@ -156,14 +223,26 @@ export default function ExtractionScreen({
       ) ||
       "";
 
-    setTranscript(nextTranscript);
-    setSavedTranscript(nextTranscript);
+    setTranscript(
+      nextTranscript
+    );
+
+    setSavedTranscript(
+      nextTranscript
+    );
 
     setTransactions([]);
+
     setError("");
+
     setSuccessMessage("");
+
     setIsEditing(false);
   }, [recapData]);
+
+  /* =========================================
+     REVIEW COUNT
+  ========================================= */
 
   const requiresReviewCount =
     useMemo(
@@ -175,6 +254,10 @@ export default function ExtractionScreen({
       [transactions]
     );
 
+  /* =========================================
+     HELPERS
+  ========================================= */
+
   function clearMessages() {
     setError("");
     setSuccessMessage("");
@@ -182,6 +265,7 @@ export default function ExtractionScreen({
 
   function handleEditTranscript() {
     clearMessages();
+
     setIsEditing(true);
   }
 
@@ -194,6 +278,10 @@ export default function ExtractionScreen({
 
     setIsEditing(false);
   }
+
+  /* =========================================
+     SAVE TRANSCRIPT
+  ========================================= */
 
   function handleSaveTranscript() {
     clearMessages();
@@ -225,8 +313,9 @@ export default function ExtractionScreen({
     setIsEditing(false);
 
     /*
-      Any previously extracted transactions
-      are now stale because the transcript changed.
+      Previously extracted transactions
+      become invalid when the transcript
+      changes.
     */
 
     setTransactions([]);
@@ -235,6 +324,10 @@ export default function ExtractionScreen({
       "Transcript changes saved. Extract the transactions again to use the updated text."
     );
   }
+
+  /* =========================================
+     EXTRACT TRANSACTIONS
+  ========================================= */
 
   async function handleExtractTransactions() {
     clearMessages();
@@ -251,8 +344,8 @@ export default function ExtractionScreen({
     }
 
     /*
-      Automatically save any edited transcript
-      before sending it to the backend.
+      Save the final reviewed transcript
+      before calling the backend.
     */
 
     setSavedTranscript(
@@ -269,26 +362,41 @@ export default function ExtractionScreen({
     );
 
     setIsEditing(false);
+
     setIsExtracting(true);
+
     setTransactions([]);
 
     try {
-      const response = await fetch(
-        "/api/extract-transactions",
-        {
-          method: "POST",
+      const endpoint =
+        buildApiUrl(
+          "/api/extract-transactions"
+        );
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            transcript:
-              cleanedTranscript,
-          }),
-        }
+      console.log(
+        "Calling extraction API:",
+        endpoint
       );
+
+      const response =
+        await fetch(
+          endpoint,
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                transcript:
+                  cleanedTranscript,
+              }),
+          }
+        );
 
       const data =
         await readApiResponse(
@@ -314,12 +422,17 @@ export default function ExtractionScreen({
           : [];
 
       if (
-        extractedTransactions.length === 0
+        extractedTransactions.length ===
+        0
       ) {
         throw new Error(
           "No accounting transactions were detected in this recap."
         );
       }
+
+      /* =================================
+         NORMALIZE SERVER RESULT
+      ================================= */
 
       const normalizedTransactions =
         extractedTransactions.map(
@@ -331,7 +444,8 @@ export default function ExtractionScreen({
               transaction.id ||
               index + 1,
 
-            currency: "PHP",
+            currency:
+              "PHP",
 
             type:
               transaction.type ||
@@ -380,7 +494,9 @@ export default function ExtractionScreen({
             : "s"
         } extracted successfully.`
       );
-    } catch (requestError) {
+    } catch (
+      requestError
+    ) {
       console.error(
         "Transaction extraction failed:",
         requestError
@@ -393,15 +509,22 @@ export default function ExtractionScreen({
           "Unable to connect to the transaction extraction service."
       );
     } finally {
-      setIsExtracting(false);
+      setIsExtracting(
+        false
+      );
     }
   }
+
+  /* =========================================
+     CONTINUE TO FINAL REVIEW
+  ========================================= */
 
   function handleContinueToReview() {
     clearMessages();
 
     if (
-      transactions.length === 0
+      transactions.length ===
+      0
     ) {
       setError(
         "Extract the transactions before continuing to review."
@@ -411,11 +534,14 @@ export default function ExtractionScreen({
     }
 
     onContinue?.({
-      date: initialDate,
+      date:
+        initialDate,
+
       businessDate:
         initialDate,
 
-      currency: "PHP",
+      currency:
+        "PHP",
 
       transcript:
         savedTranscript.trim(),
@@ -424,11 +550,21 @@ export default function ExtractionScreen({
     });
   }
 
-  function handleBottomNavigation(tab) {
+  /* =========================================
+     NAVIGATION
+  ========================================= */
+
+  function handleBottomNavigation(
+    tab
+  ) {
     if (onNavigate) {
       onNavigate(tab);
     }
   }
+
+  /* =========================================
+     UI
+  ========================================= */
 
   return (
     <div className="app-shell">
@@ -459,9 +595,10 @@ export default function ExtractionScreen({
             </h1>
 
             <p className="page-description">
-              Check what the transcription service
-              understood before creating financial
-              transactions.
+              Check what the
+              transcription service
+              understood before creating
+              financial transactions.
             </p>
           </div>
         </section>
@@ -488,8 +625,10 @@ export default function ExtractionScreen({
               </h2>
 
               <p>
-                Correct names, amounts or
-                transcription mistakes before
+                Correct names,
+                amounts or
+                transcription
+                mistakes before
                 extraction.
               </p>
             </div>
@@ -504,7 +643,9 @@ export default function ExtractionScreen({
             <>
               <textarea
                 className="transcript-textarea"
-                value={transcript}
+                value={
+                  transcript
+                }
                 rows={10}
                 disabled={
                   isExtracting
@@ -560,7 +701,9 @@ export default function ExtractionScreen({
               <div className="transcript-preview">
                 {savedTranscript ? (
                   <p>
-                    {savedTranscript}
+                    {
+                      savedTranscript
+                    }
                   </p>
                 ) : (
                   <p className="muted-text">
@@ -593,12 +736,14 @@ export default function ExtractionScreen({
 
         <div className="currency-notice">
           <strong>
-            ₱ Philippine Pesos (PHP)
+            ₱ Philippine Pesos
+            (PHP)
           </strong>
 
           <span>
-            All monetary amounts in this
-            prototype are treated as PHP.
+            All monetary amounts
+            in this prototype are
+            treated as PHP.
           </span>
         </div>
 
@@ -640,7 +785,9 @@ export default function ExtractionScreen({
               </strong>
 
               <p>
-                {successMessage}
+                {
+                  successMessage
+                }
               </p>
             </div>
           </div>
@@ -666,7 +813,8 @@ export default function ExtractionScreen({
                 aria-hidden="true"
               />
 
-              Extracting Transactions...
+              Extracting
+              Transactions...
             </>
           ) : (
             <>
@@ -686,14 +834,16 @@ export default function ExtractionScreen({
             <div className="section-heading-row">
               <div>
                 <h2>
-                  Extracted Transactions
+                  Extracted
+                  Transactions
                 </h2>
 
                 <p>
-                  These are preliminary.
-                  You can make final
-                  corrections on the next
-                  screen.
+                  These are
+                  preliminary. You
+                  can make final
+                  corrections on the
+                  next screen.
                 </p>
               </div>
 
