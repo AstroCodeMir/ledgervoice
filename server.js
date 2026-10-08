@@ -1,10 +1,11 @@
-const express = require("express");
-const cors = require("cors");
-const multer = require("multer");
-const fs = require("fs");
-const os = require("os");
+import express from "express";
+import cors from "cors";
+import multer from "multer";
+import fs from "fs";
+import os from "os";
+import dotenv from "dotenv";
 
-require("dotenv").config();
+dotenv.config();
 
 /* =========================================
    ENVIRONMENT CHECK
@@ -1124,4 +1125,4 @@ if (require.main === module) {
    VERCEL EXPORT
 ========================================= */
 
-module.exports = app;
+export default app;
