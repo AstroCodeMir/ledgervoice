@@ -24,11 +24,19 @@ const app = express();
 
 const PORT = process.env.PORT || 3001;
 
+/* =========================================
+   CORS
+========================================= */
+
 app.use(
   cors({
     origin: true,
   })
 );
+
+/* =========================================
+   JSON BODY
+========================================= */
 
 app.use(
   express.json({
@@ -39,11 +47,8 @@ app.use(
 /* =========================================
    TEMPORARY UPLOAD DIRECTORY
 
-   Vercel serverless functions should use
-   the system temporary directory.
-
-   For normal local development, os.tmpdir()
-   also works safely.
+   Vercel provides a writable temporary
+   directory. os.tmpdir() also works locally.
 ========================================= */
 
 const uploadDirectory = os.tmpdir();
@@ -56,10 +61,8 @@ console.log(
 /* =========================================
    MULTER
 
-   Vercel has a request payload limit.
-
-   Keep uploaded recordings below 4 MB for
-   this deployment.
+   Keep recording uploads below 4 MB for
+   the Vercel deployment.
 ========================================= */
 
 const upload = multer({
@@ -137,18 +140,14 @@ function normalizeTranscriptCurrency(
   return text
 
     /*
-      If speech-to-text/API somehow
-      produces a dollar symbol,
-      Dryve accounting should use PHP.
+      Dryve accounting uses PHP.
+
+      If the transcription/API returns a
+      dollar symbol accidentally, normalize
+      it to the peso symbol.
     */
 
     .replace(/\$/g, "₱")
-
-    /*
-      Normalize explicit dollar wording
-      because all Dryve accounting values
-      are PHP for this prototype.
-    */
 
     .replace(
       /\bUS dollars?\b/gi,
@@ -206,7 +205,7 @@ function normalizeAmount(value) {
 }
 
 /* =========================================
-   ROOT
+   ROOT API
 ========================================= */
 
 app.get(
@@ -214,8 +213,10 @@ app.get(
   (req, res) => {
     res.json({
       success: true,
+
       message:
         "Dryve PH Voice-to-Income API is running.",
+
       currency: "PHP",
     });
   }
@@ -235,6 +236,11 @@ app.get(
         "Dryve transcription server is running.",
 
       currency: "PHP",
+
+      groqConfigured:
+        Boolean(
+          process.env.GROQ_API_KEY
+        ),
     });
   }
 );
@@ -246,15 +252,21 @@ app.get(
 app.post(
   "/api/transcribe",
 
+  /*
+    Multer expects the frontend FormData field:
+
+    formData.append("audio", file)
+  */
+
   upload.single("audio"),
 
   async (req, res) => {
     let uploadedPath = null;
 
     try {
-      /* -----------------------------
+      /* ---------------------------------
          VALIDATE FILE
-      ----------------------------- */
+      ---------------------------------- */
 
       if (!req.file) {
         return res
@@ -292,14 +304,19 @@ app.post(
         `Audio size: ${req.file.size} bytes`
       );
 
-      /* -----------------------------
-         READ AUDIO
-      ----------------------------- */
+      /* ---------------------------------
+         READ TEMP AUDIO
+      ---------------------------------- */
 
       const audioBuffer =
         fs.readFileSync(
           uploadedPath
         );
+
+      /*
+        Node 18+ provides Blob, FormData
+        and fetch globally.
+      */
 
       const audioBlob =
         new Blob(
@@ -337,17 +354,18 @@ app.post(
       );
 
       /*
-        Do not force English.
+        Do not force an audio language.
 
-        Dryve recaps can be:
+        Dryve voice recaps can contain:
+
         - English
         - Tagalog
         - Taglish
       */
 
-      /* -----------------------------
+      /* ---------------------------------
          GROQ WHISPER REQUEST
-      ----------------------------- */
+      ---------------------------------- */
 
       const groqResponse =
         await fetch(
@@ -367,9 +385,9 @@ app.post(
       const responseText =
         await groqResponse.text();
 
-      /* -----------------------------
-         API ERROR
-      ----------------------------- */
+      /* ---------------------------------
+         GROQ ERROR
+      ---------------------------------- */
 
       if (
         !groqResponse.ok
@@ -394,9 +412,9 @@ app.post(
           });
       }
 
-      /* -----------------------------
-         PARSE RESULT
-      ----------------------------- */
+      /* ---------------------------------
+         PARSE RESPONSE
+      ---------------------------------- */
 
       let transcription;
 
@@ -413,8 +431,7 @@ app.post(
 
       const transcript =
         normalizeTranscriptCurrency(
-          transcription.text ||
-            ""
+          transcription.text || ""
         );
 
       if (!transcript) {
@@ -445,11 +462,6 @@ app.post(
         error
       );
 
-      /*
-        Multer error for files that
-        exceed the configured size.
-      */
-
       if (
         error.code ===
         "LIMIT_FILE_SIZE"
@@ -479,9 +491,9 @@ app.post(
             error.message,
         });
     } finally {
-      /* -----------------------------
+      /* ---------------------------------
          DELETE TEMP AUDIO
-      ----------------------------- */
+      ---------------------------------- */
 
       if (
         uploadedPath &&
@@ -523,9 +535,9 @@ app.post(
         transcript,
       } = req.body;
 
-      /* -----------------------------
+      /* ---------------------------------
          VALIDATION
-      ----------------------------- */
+      ---------------------------------- */
 
       if (
         !transcript ||
@@ -875,7 +887,7 @@ ${transcript}
       }
 
       /* =================================
-         PARSE GROQ
+         PARSE GROQ RESPONSE
       ================================= */
 
       let groqData;
@@ -910,9 +922,7 @@ ${transcript}
           JSON.parse(
             content
           );
-      } catch (
-        parseError
-      ) {
+      } catch {
         console.error(
           "Invalid Groq JSON:",
           content
@@ -949,12 +959,10 @@ ${transcript}
               );
 
             /*
-              Do NOT silently trust an
-              invalid account.
-
-              We use Miscellaneous as
-              temporary fallback and flag
-              it for human review.
+              Unsupported categories are
+              temporarily mapped to
+              Miscellaneous and flagged
+              for review.
             */
 
             const account =
@@ -1081,31 +1089,86 @@ ${transcript}
 );
 
 /* =========================================
+   MULTER ERROR HANDLER
+========================================= */
+
+app.use(
+  (
+    error,
+    req,
+    res,
+    next
+  ) => {
+    if (
+      error instanceof
+      multer.MulterError
+    ) {
+      if (
+        error.code ===
+        "LIMIT_FILE_SIZE"
+      ) {
+        return res
+          .status(413)
+          .json({
+            success: false,
+
+            error:
+              "Audio recording is too large.",
+
+            details:
+              "Please upload an audio file smaller than 4 MB.",
+          });
+      }
+
+      return res
+        .status(400)
+        .json({
+          success: false,
+
+          error:
+            "Audio upload failed.",
+
+          details:
+            error.message,
+        });
+    }
+
+    next(error);
+  }
+);
+
+/* =========================================
    404
 ========================================= */
 
 app.use(
   (req, res) => {
-    res.status(404).json({
-      success: false,
+    res
+      .status(404)
+      .json({
+        success: false,
 
-      error:
-        "Route not found.",
-    });
+        error:
+          "Route not found.",
+
+        path:
+          req.originalUrl,
+      });
   }
 );
 
 /* =========================================
    LOCAL DEVELOPMENT
 
-   Vercel imports this Express app instead
-   of opening its own port.
+   On your computer:
+   npm start
 
-   When server.js is executed directly with
-   npm start, it still runs on port 3001.
+   Vercel sets the VERCEL environment
+   variable automatically, so app.listen()
+   will not run there.
 ========================================= */
 
-if (require.main === module) {
+if (!process.env.VERCEL) {
   app.listen(
     PORT,
     "0.0.0.0",
