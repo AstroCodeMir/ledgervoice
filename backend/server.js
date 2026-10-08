@@ -1,42 +1,40 @@
 import express from "express";
 import cors from "cors";
 import multer from "multer";
-import fs from "fs";
-import os from "os";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 /* =========================================
-   ENVIRONMENT CHECK
+   APP
 ========================================= */
 
+const app = express();
+const PORT = process.env.PORT || 3001;
+
 console.log(
-  "Groq key loaded:",
+  "Groq configured:",
   Boolean(process.env.GROQ_API_KEY)
 );
 
 /* =========================================
-   SERVER
-========================================= */
-
-const app = express();
-
-const PORT = process.env.PORT || 3001;
-
-/* =========================================
-   CORS
+   MIDDLEWARE
 ========================================= */
 
 app.use(
   cors({
     origin: true,
+    methods: [
+      "GET",
+      "POST",
+      "OPTIONS",
+    ],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
   })
 );
-
-/* =========================================
-   JSON BODY
-========================================= */
 
 app.use(
   express.json({
@@ -45,36 +43,25 @@ app.use(
 );
 
 /* =========================================
-   TEMPORARY UPLOAD DIRECTORY
+   AUDIO UPLOAD
 
-   Vercel provides a writable temporary
-   directory. os.tmpdir() also works locally.
-========================================= */
+   Store the recording in memory instead
+   of writing temporary files to disk.
 
-const uploadDirectory = os.tmpdir();
-
-console.log(
-  "Temporary upload directory:",
-  uploadDirectory
-);
-
-/* =========================================
-   MULTER
-
-   Keep recording uploads below 4 MB for
-   the Vercel deployment.
+   Maximum: 4 MB
 ========================================= */
 
 const upload = multer({
-  dest: uploadDirectory,
+  storage: multer.memoryStorage(),
 
   limits: {
-    fileSize: 4 * 1024 * 1024,
+    fileSize:
+      4 * 1024 * 1024,
   },
 });
 
 /* =========================================
-   DRYVE ACCOUNTING STRUCTURE
+   DRYVE ACCOUNTS
 ========================================= */
 
 const REVENUE_ACCOUNTS = [
@@ -109,12 +96,16 @@ const ALLOWED_TYPES = [
 ];
 
 /* =========================================
-   ACCOUNT → TYPE
+   ACCOUNT TYPE
 ========================================= */
 
-function getExpectedType(account) {
+function getExpectedType(
+  account
+) {
   if (
-    REVENUE_ACCOUNTS.includes(account)
+    REVENUE_ACCOUNTS.includes(
+      account
+    )
   ) {
     return "Revenue";
   }
@@ -131,22 +122,13 @@ function getExpectedType(account) {
 }
 
 /* =========================================
-   TRANSCRIPT CURRENCY NORMALIZATION
+   TRANSCRIPT NORMALIZATION
 ========================================= */
 
 function normalizeTranscriptCurrency(
   text = ""
 ) {
   return text
-
-    /*
-      Dryve accounting uses PHP.
-
-      If the transcription/API returns a
-      dollar symbol accidentally, normalize
-      it to the peso symbol.
-    */
-
     .replace(/\$/g, "₱")
 
     .replace(
@@ -166,7 +148,9 @@ function normalizeTranscriptCurrency(
    AMOUNT NORMALIZATION
 ========================================= */
 
-function normalizeAmount(value) {
+function normalizeAmount(
+  value
+) {
   if (
     value === null ||
     value === undefined ||
@@ -176,19 +160,26 @@ function normalizeAmount(value) {
   }
 
   if (
-    typeof value === "number"
+    typeof value ===
+    "number"
   ) {
-    return Number.isFinite(value)
+    return Number.isFinite(
+      value
+    )
       ? value
       : null;
   }
 
   if (
-    typeof value === "string"
+    typeof value ===
+    "string"
   ) {
     const cleaned =
       value
-        .replace(/[₱$,]/g, "")
+        .replace(
+          /[₱$,]/g,
+          ""
+        )
         .trim();
 
     const numeric =
@@ -205,17 +196,20 @@ function normalizeAmount(value) {
 }
 
 /* =========================================
-   ROOT API
+   ROOT
 ========================================= */
 
 app.get(
   "/",
   (req, res) => {
-    res.json({
+    return res.json({
       success: true,
 
+      service:
+        "Dryve PH Voice-to-Income API",
+
       message:
-        "Dryve PH Voice-to-Income API is running.",
+        "Dryve backend is running.",
 
       currency: "PHP",
     });
@@ -223,13 +217,13 @@ app.get(
 );
 
 /* =========================================
-   HEALTH CHECK
+   HEALTH
 ========================================= */
 
 app.get(
   "/api/health",
   (req, res) => {
-    res.json({
+    return res.json({
       success: true,
 
       message:
@@ -239,7 +233,8 @@ app.get(
 
       groqConfigured:
         Boolean(
-          process.env.GROQ_API_KEY
+          process.env
+            .GROQ_API_KEY
         ),
     });
   }
@@ -252,21 +247,13 @@ app.get(
 app.post(
   "/api/transcribe",
 
-  /*
-    Multer expects the frontend FormData field:
-
-    formData.append("audio", file)
-  */
-
   upload.single("audio"),
 
   async (req, res) => {
-    let uploadedPath = null;
-
     try {
-      /* ---------------------------------
-         VALIDATE FILE
-      ---------------------------------- */
+      /* -----------------------------
+         FILE VALIDATION
+      ----------------------------- */
 
       if (!req.file) {
         return res
@@ -293,34 +280,25 @@ app.post(
           });
       }
 
-      uploadedPath =
-        req.file.path;
-
       console.log(
-        `Transcribing: ${req.file.originalname}`
+        "Audio received:",
+        req.file.originalname
       );
 
       console.log(
-        `Audio size: ${req.file.size} bytes`
+        "Audio size:",
+        req.file.size
       );
 
-      /* ---------------------------------
-         READ TEMP AUDIO
-      ---------------------------------- */
-
-      const audioBuffer =
-        fs.readFileSync(
-          uploadedPath
-        );
-
-      /*
-        Node 18+ provides Blob, FormData
-        and fetch globally.
-      */
+      /* -----------------------------
+         CREATE GROQ FORM DATA
+      ----------------------------- */
 
       const audioBlob =
         new Blob(
-          [audioBuffer],
+          [
+            req.file.buffer,
+          ],
           {
             type:
               req.file
@@ -335,7 +313,8 @@ app.post(
       formData.append(
         "file",
         audioBlob,
-        req.file.originalname
+        req.file.originalname ||
+          "recording.mp3"
       );
 
       formData.append(
@@ -353,19 +332,9 @@ app.post(
         "0"
       );
 
-      /*
-        Do not force an audio language.
-
-        Dryve voice recaps can contain:
-
-        - English
-        - Tagalog
-        - Taglish
-      */
-
-      /* ---------------------------------
-         GROQ WHISPER REQUEST
-      ---------------------------------- */
+      /* -----------------------------
+         GROQ WHISPER
+      ----------------------------- */
 
       const groqResponse =
         await fetch(
@@ -384,10 +353,6 @@ app.post(
 
       const responseText =
         await groqResponse.text();
-
-      /* ---------------------------------
-         GROQ ERROR
-      ---------------------------------- */
 
       if (
         !groqResponse.ok
@@ -412,10 +377,6 @@ app.post(
           });
       }
 
-      /* ---------------------------------
-         PARSE RESPONSE
-      ---------------------------------- */
-
       let transcription;
 
       try {
@@ -424,14 +385,20 @@ app.post(
             responseText
           );
       } catch {
-        throw new Error(
-          "Unable to parse transcription response."
-        );
+        return res
+          .status(502)
+          .json({
+            success: false,
+
+            error:
+              "Groq returned an invalid transcription response.",
+          });
       }
 
       const transcript =
         normalizeTranscriptCurrency(
-          transcription.text || ""
+          transcription.text ||
+            ""
         );
 
       if (!transcript) {
@@ -446,7 +413,7 @@ app.post(
       }
 
       console.log(
-        "Transcription complete."
+        "Transcription completed."
       );
 
       return res.json({
@@ -458,26 +425,9 @@ app.post(
       });
     } catch (error) {
       console.error(
-        "Server transcription error:",
+        "Transcription server error:",
         error
       );
-
-      if (
-        error.code ===
-        "LIMIT_FILE_SIZE"
-      ) {
-        return res
-          .status(413)
-          .json({
-            success: false,
-
-            error:
-              "Audio recording is too large.",
-
-            details:
-              "Please upload an audio file smaller than 4 MB.",
-          });
-      }
 
       return res
         .status(500)
@@ -490,40 +440,12 @@ app.post(
           details:
             error.message,
         });
-    } finally {
-      /* ---------------------------------
-         DELETE TEMP AUDIO
-      ---------------------------------- */
-
-      if (
-        uploadedPath &&
-        fs.existsSync(
-          uploadedPath
-        )
-      ) {
-        try {
-          fs.unlinkSync(
-            uploadedPath
-          );
-
-          console.log(
-            "Temporary audio file deleted."
-          );
-        } catch (
-          cleanupError
-        ) {
-          console.warn(
-            "Temporary file cleanup failed:",
-            cleanupError.message
-          );
-        }
-      }
     }
   }
 );
 
 /* =========================================
-   TRANSACTION EXTRACTION
+   EXTRACT TRANSACTIONS
 ========================================= */
 
 app.post(
@@ -531,18 +453,14 @@ app.post(
 
   async (req, res) => {
     try {
-      const {
-        transcript,
-      } = req.body;
+      const transcript =
+        String(
+          req.body
+            ?.transcript ||
+            ""
+        ).trim();
 
-      /* ---------------------------------
-         VALIDATION
-      ---------------------------------- */
-
-      if (
-        !transcript ||
-        !transcript.trim()
-      ) {
+      if (!transcript) {
         return res
           .status(400)
           .json({
@@ -577,7 +495,6 @@ You are an accounting transaction extraction assistant for Dryve PH, a vehicle d
 Your task is to convert a manager's daily voice recap transcript into structured accounting transactions.
 
 The transcript may contain:
-
 - English
 - Tagalog
 - Taglish
@@ -586,75 +503,40 @@ The transcript may contain:
 - shorthand
 - self-corrections
 - incomplete information
-- multiple transactions in one recap
+- multiple transactions
 
-==================================================
 CURRENCY
-==================================================
 
-ALL monetary amounts are Philippine Pesos (PHP).
+All monetary amounts are Philippine Pesos (PHP).
 
 Never interpret any amount as US Dollars.
-
 Never convert PHP into USD.
-
 Never return a dollar sign.
 
-The amount field must contain ONLY a numeric value or null.
+The amount field must contain only a numeric value or null.
 
 Examples:
 
-"485k"
-means:
-485000
+"485k" = 485000
 
-"5k"
-means:
-5000
+"5k" = 5000
 
-"12,500"
-means:
-12500
+"12,500" = 12500
 
-"1.15 million"
-means:
-1150000
+"1.15 million" = 1150000
 
-"tig-4,500 each" for two units
-means:
-9000 total
+"tig-4,500 each" for two units = 9000 total
 
-Do not include "₱", "PHP", "$", commas, or other text inside the amount value.
-
-Correct:
-
-"amount": 485000
-
-Wrong:
-
-"amount": "$485,000"
-
-Wrong:
-
-"amount": "₱485,000"
-
-==================================================
 ACCURACY RULES
-==================================================
 
 1. Never invent an amount.
-
 2. Never invent a person.
-
 3. Never invent a vehicle.
-
 4. Never invent a plate number.
-
 5. Never invent a date.
-
 6. Never infer a missing amount from prior transactions.
 
-7. If an amount is missing, return:
+7. If an amount is missing:
 
 "amount": null
 
@@ -662,11 +544,11 @@ and:
 
 "needs_review": true
 
-8. If information is unclear or incomplete, set:
+8. If information is unclear or incomplete:
 
 "needs_review": true
 
-9. When the speaker corrects themselves, use the FINAL corrected value.
+9. If the speaker corrects an earlier value, use the FINAL corrected value.
 
 Example:
 
@@ -676,89 +558,79 @@ Correct amount:
 
 1050
 
-Do not return 1500.
+10. Do not calculate Revenue totals, Gross Profit, Net Income, or income statement totals.
 
-10. Do not calculate Revenue, Gross Profit, Net Income, or other statement totals.
+The application calculates those values.
 
-The application will calculate those values.
-
-==================================================
 ACCOUNTING STRUCTURE
-==================================================
 
 Revenue:
 
-1. Vehicle Sales
-   - sale of a vehicle to a buyer
+Vehicle Sales
+- sale of a vehicle
 
-2. Other Income
-   - storage fees
-   - documentation fees
-   - other operating income
+Other Income
+- storage fees
+- documentation fees
+- other operating income
 
 Cost of Sales:
 
-3. Vehicle Acquisition Cost
-   - acquisition or purchase cost of a vehicle
+Vehicle Acquisition Cost
+- vehicle purchase/acquisition cost
 
-4. Reconditioning
-   - repairs
-   - detailing
-   - vehicle parts
-   - vehicle preparation
+Reconditioning
+- repairs
+- detailing
+- vehicle parts
+- vehicle preparation
 
 Operating Expenses:
 
-5. Salaries and Commissions
-   - employee salaries
-   - helper wages
-   - sales commissions
+Salaries and Commissions
+- employee salaries
+- helper wages
+- sales commissions
 
-6. Transport and Fuel
-   - towing
-   - hauling
-   - vehicle transport
-   - fuel
+Transport and Fuel
+- towing
+- hauling
+- transport
+- fuel
 
-7. Rent and Utilities
-   - rent
-   - electricity
-   - Meralco
-   - water
+Rent and Utilities
+- rent
+- electricity
+- Meralco
+- water
 
-8. Marketing
-   - advertisements
-   - boosted social posts
-   - signage
+Marketing
+- advertisements
+- boosted posts
+- signage
 
-9. Office and Admin
-   - office supplies
-   - phone load
-   - printing
-   - printer ink
+Office and Admin
+- office supplies
+- phone load
+- printing
+- printer ink
 
-10. Miscellaneous
-   - expenses that clearly do not belong to another available category
+Miscellaneous
+- expenses that clearly do not fit another category
 
-==================================================
 VALID TYPES
-==================================================
 
-Only use these transaction types:
+Only use:
 
 Revenue
-
 Cost of Sales
-
 Operating Expense
 
-==================================================
 OUTPUT
-==================================================
 
 Return JSON only.
 
-Use exactly this structure:
+Use:
 
 {
   "transactions": [
@@ -772,29 +644,10 @@ Use exactly this structure:
     }
   ]
 }
-
-Example with missing information:
-
-{
-  "transactions": [
-    {
-      "type": "Operating Expense",
-      "account": "Rent and Utilities",
-      "description": "Meralco warehouse electricity bill",
-      "amount": null,
-      "needs_review": true,
-      "review_reason": "Amount was not provided"
-    }
-  ]
-}
 `;
 
-      console.log(
-        "Sending transcript to Groq for transaction extraction..."
-      );
-
       /* =================================
-         GROQ REQUEST
+         GROQ EXTRACTION
       ================================= */
 
       const groqResponse =
@@ -839,12 +692,9 @@ Example with missing information:
                     content: `
 Extract all accounting transactions from this Dryve PH daily recap.
 
-Remember:
-
-- Currency is Philippine Pesos (PHP).
-- Never use dollars.
-- Never invent missing values.
-- Use final corrections when the speaker corrects an earlier amount.
+Currency is PHP.
+Do not invent missing values.
+Use final corrections.
 
 Transcript:
 
@@ -858,10 +708,6 @@ ${transcript}
 
       const responseText =
         await groqResponse.text();
-
-      /* =================================
-         GROQ ERROR
-      ================================= */
 
       if (
         !groqResponse.ok
@@ -885,10 +731,6 @@ ${transcript}
               responseText,
           });
       }
-
-      /* =================================
-         PARSE GROQ RESPONSE
-      ================================= */
 
       let groqData;
 
@@ -934,7 +776,7 @@ ${transcript}
       }
 
       /* =================================
-         SERVER VALIDATION
+         VALIDATE AI TRANSACTIONS
       ================================= */
 
       const rawTransactions =
@@ -957,13 +799,6 @@ ${transcript}
               ALLOWED_ACCOUNTS.includes(
                 originalAccount
               );
-
-            /*
-              Unsupported categories are
-              temporarily mapped to
-              Miscellaneous and flagged
-              for review.
-            */
 
             const account =
               accountValid
@@ -1036,7 +871,7 @@ ${transcript}
               description:
                 String(
                   transaction.description ||
-                  "Unspecified transaction"
+                    "Unspecified transaction"
                 ).trim(),
 
               amount,
@@ -1062,8 +897,7 @@ ${transcript}
       return res.json({
         success: true,
 
-        currency:
-          "PHP",
+        currency: "PHP",
 
         transactions,
       });
@@ -1089,7 +923,7 @@ ${transcript}
 );
 
 /* =========================================
-   MULTER ERROR HANDLER
+   MULTER / API ERROR HANDLER
 ========================================= */
 
 app.use(
@@ -1133,17 +967,39 @@ app.use(
         });
     }
 
-    next(error);
+    console.error(
+      "Unhandled server error:",
+      error
+    );
+
+    return res
+      .status(500)
+      .json({
+        success: false,
+
+        error:
+          "Internal server error.",
+
+        details:
+          error.message,
+      });
   }
 );
 
 /* =========================================
-   404
+   JSON 404
+
+   If you receive this JSON,
+   Express is working.
+
+   If you receive Vercel's white
+   404_NOT_FOUND page instead,
+   the request never reached Express.
 ========================================= */
 
 app.use(
   (req, res) => {
-    res
+    return res
       .status(404)
       .json({
         success: false,
@@ -1158,14 +1014,7 @@ app.use(
 );
 
 /* =========================================
-   LOCAL DEVELOPMENT
-
-   On your computer:
-   npm start
-
-   Vercel sets the VERCEL environment
-   variable automatically, so app.listen()
-   will not run there.
+   LOCAL DEVELOPMENT ONLY
 ========================================= */
 
 if (!process.env.VERCEL) {
