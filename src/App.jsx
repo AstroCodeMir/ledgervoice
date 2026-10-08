@@ -13,154 +13,298 @@ import {
 } from "./utils/dryveStorage";
 
 function App() {
-  const [currentScreen, setCurrentScreen] =
-    useState("recap");
+  const [
+    currentScreen,
+    setCurrentScreen,
+  ] = useState("recap");
 
-  const [recapData, setRecapData] =
-    useState(null);
+  const [
+    recapData,
+    setRecapData,
+  ] = useState(null);
 
-  const [extractedData, setExtractedData] =
-    useState(null);
+  const [
+    extractedData,
+    setExtractedData,
+  ] = useState(null);
 
-  const [batchDate, setBatchDate] =
-    useState(getTodayDate());
+  const [
+    batchDate,
+    setBatchDate,
+  ] = useState(
+    getTodayDate()
+  );
 
-  const [statementData, setStatementData] =
-    useState(null);
+  const [
+    statementData,
+    setStatementData,
+  ] = useState(null);
 
-  /* ==========================
+  /* =========================================
+     NAVIGATION
+  ========================================= */
+
+  function handleNavigation(
+    tab
+  ) {
+    if (!tab) {
+      return;
+    }
+
+    switch (tab) {
+      case "recap":
+        setCurrentScreen(
+          "recap"
+        );
+        break;
+
+      case "extract":
+        setCurrentScreen(
+          "extract"
+        );
+        break;
+
+      case "review":
+        setCurrentScreen(
+          "review"
+        );
+        break;
+
+      case "batch":
+        setCurrentScreen(
+          "batch"
+        );
+        break;
+
+      case "statement":
+        setCurrentScreen(
+          "statement"
+        );
+        break;
+
+      case "history":
+        setCurrentScreen(
+          "history"
+        );
+        break;
+
+      default:
+        console.warn(
+          "Unknown navigation tab:",
+          tab
+        );
+    }
+  }
+
+  /* =========================================
      RECAP → EXTRACTION
-  ========================== */
+  ========================================= */
 
-  const handleContinueToExtraction = (
+  function handleContinueToExtraction(
     data
-  ) => {
-    setRecapData(data);
+  ) {
+    console.log(
+      "Moving to extraction screen:",
+      data
+    );
 
-    setCurrentScreen("extract");
-  };
+    setRecapData(
+      data
+    );
 
-  /* ==========================
+    setExtractedData(
+      null
+    );
+
+    setCurrentScreen(
+      "extract"
+    );
+  }
+
+  /* =========================================
      EXTRACTION → REVIEW
-  ========================== */
+  ========================================= */
 
-  const handleContinueToReview = (
+  function handleContinueToReview(
     data
-  ) => {
-    setExtractedData(data);
+  ) {
+    console.log(
+      "Moving to review screen:",
+      data
+    );
+
+    setExtractedData(
+      data
+    );
 
     sessionStorage.setItem(
       "dryveExtractedTransactions",
-      JSON.stringify(data)
+      JSON.stringify(
+        data
+      )
     );
 
-    setCurrentScreen("review");
-  };
+    setCurrentScreen(
+      "review"
+    );
+  }
 
-  /* ==========================
+  /* =========================================
      REVIEW → DAILY BATCH
-  ========================== */
+  ========================================= */
 
-  const handleSavedToDailyBatch = (
+  function handleSavedToDailyBatch(
     date
-  ) => {
-    setBatchDate(date);
+  ) {
+    setBatchDate(
+      date
+    );
 
-    setRecapData(null);
-    setExtractedData(null);
+    setRecapData(
+      null
+    );
+
+    setExtractedData(
+      null
+    );
 
     sessionStorage.removeItem(
       "dryveTranscript"
     );
 
     sessionStorage.removeItem(
+      "dryveBusinessDate"
+    );
+
+    sessionStorage.removeItem(
       "dryveExtractedTransactions"
     );
 
-    setCurrentScreen("batch");
-  };
+    setCurrentScreen(
+      "batch"
+    );
+  }
 
-  /* ==========================
+  /* =========================================
      ADD ANOTHER RECAP
-  ========================== */
+  ========================================= */
 
-  const handleAddAnotherRecap = () => {
-    setRecapData(null);
-    setExtractedData(null);
+  function handleAddAnotherRecap() {
+    setRecapData(
+      null
+    );
+
+    setExtractedData(
+      null
+    );
 
     sessionStorage.removeItem(
       "dryveTranscript"
     );
 
     sessionStorage.removeItem(
+      "dryveBusinessDate"
+    );
+
+    sessionStorage.removeItem(
       "dryveExtractedTransactions"
     );
 
-    setCurrentScreen("recap");
-  };
+    setCurrentScreen(
+      "recap"
+    );
+  }
 
-  /* ==========================
+  /* =========================================
      FINALIZE DAY
-  ========================== */
+  ========================================= */
 
-  const handleFinalizeDay = (
+  function handleFinalizeDay(
     date
-  ) => {
+  ) {
     try {
       const statement =
-        finalizeDailyBatch(date);
+        finalizeDailyBatch(
+          date
+        );
 
-      setStatementData(statement);
+      setStatementData(
+        statement
+      );
 
       setCurrentScreen(
         "statement"
       );
     } catch (error) {
-      alert(error.message);
+      console.error(
+        "Unable to finalize day:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Unable to finalize the daily batch."
+      );
     }
-  };
+  }
 
-  /* ==========================
+  /* =========================================
      VIEW HISTORY STATEMENT
-  ========================== */
+  ========================================= */
 
-  const handleViewHistory = (
+  function handleViewHistory(
     statement
-  ) => {
-    setStatementData(statement);
+  ) {
+    setStatementData(
+      statement
+    );
 
     setCurrentScreen(
       "statement"
     );
-  };
+  }
 
-  /* ==========================
-     ROUTING
-  ========================== */
+  /* =========================================
+     EXTRACTION SCREEN
+  ========================================= */
 
   if (
-    currentScreen === "extract"
+    currentScreen ===
+    "extract"
   ) {
     return (
       <ExtractionScreen
-        transcript={
-          recapData?.transcript
+        recapData={
+          recapData
         }
         onBack={() =>
-          setCurrentScreen("recap")
+          setCurrentScreen(
+            "recap"
+          )
         }
-        onContinueToReview={
+        onContinue={
           handleContinueToReview
+        }
+        onNavigate={
+          handleNavigation
         }
       />
     );
   }
 
+  /* =========================================
+     REVIEW SCREEN
+  ========================================= */
+
   if (
-    currentScreen === "review"
+    currentScreen ===
+    "review"
   ) {
     return (
       <ReviewScreen
+        recapData={
+          recapData
+        }
         extractedData={
           extractedData
         }
@@ -173,7 +317,9 @@ function App() {
           handleSavedToDailyBatch
         }
         onGoToRecap={() =>
-          setCurrentScreen("recap")
+          setCurrentScreen(
+            "recap"
+          )
         }
         onGoToExtract={() =>
           setCurrentScreen(
@@ -185,16 +331,26 @@ function App() {
             "history"
           )
         }
+        onNavigate={
+          handleNavigation
+        }
       />
     );
   }
 
+  /* =========================================
+     DAILY BATCH SCREEN
+  ========================================= */
+
   if (
-    currentScreen === "batch"
+    currentScreen ===
+    "batch"
   ) {
     return (
       <DailyBatchScreen
-        date={batchDate}
+        date={
+          batchDate
+        }
         onAddAnotherRecap={
           handleAddAnotherRecap
         }
@@ -206,9 +362,16 @@ function App() {
             "history"
           )
         }
+        onNavigate={
+          handleNavigation
+        }
       />
     );
   }
+
+  /* =========================================
+     INCOME STATEMENT SCREEN
+  ========================================= */
 
   if (
     currentScreen ===
@@ -232,12 +395,20 @@ function App() {
             "history"
           )
         }
+        onNavigate={
+          handleNavigation
+        }
       />
     );
   }
 
+  /* =========================================
+     HISTORY SCREEN
+  ========================================= */
+
   if (
-    currentScreen === "history"
+    currentScreen ===
+    "history"
   ) {
     return (
       <StatementHistoryScreen
@@ -252,14 +423,24 @@ function App() {
         onProcessNewRecap={
           handleAddAnotherRecap
         }
+        onNavigate={
+          handleNavigation
+        }
       />
     );
   }
 
+  /* =========================================
+     DEFAULT / RECAP SCREEN
+  ========================================= */
+
   return (
     <RecapScreen
-      onContinueToExtraction={
+      onContinue={
         handleContinueToExtraction
+      }
+      onNavigate={
+        handleNavigation
       }
     />
   );
