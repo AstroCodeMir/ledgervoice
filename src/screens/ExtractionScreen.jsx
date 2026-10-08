@@ -118,7 +118,7 @@ function ExtractionScreen({
       );
 
       const response = await fetch(
-        "http://localhost:3001/api/extract-transactions",
+        "/api/extract-transactions",
         {
           method: "POST",
 

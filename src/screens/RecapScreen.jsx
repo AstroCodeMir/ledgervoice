@@ -83,7 +83,7 @@ function RecapScreen({ onContinueToExtraction }) {
       formData.append("audio", selectedFile);
 
       const response = await fetch(
-        "http://localhost:3001/api/transcribe",
+        "/api/transcribe",
         {
           method: "POST",
           body: formData,
