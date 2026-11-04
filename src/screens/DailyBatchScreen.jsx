@@ -17,7 +17,7 @@ import {
   getDailyBatch,
   getBatchTransactions,
   removeRecapFromDailyBatch,
-} from "../utils/dryveStorage";
+} from "../utils/ledgerStorage";
 
 function DailyBatchScreen({
   date,
@@ -70,7 +70,7 @@ function DailyBatchScreen({
 
           <div className="page-heading">
             <h1>
-              Daily Recap Batch
+              Daily Closing
             </h1>
 
             <div className="recording-date">
@@ -224,7 +224,7 @@ function DailyBatchScreen({
                 0
             }
           >
-            Finalize Day & Generate Statement
+            Generate Income Statement
           </button>
 
         </section>

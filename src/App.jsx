@@ -10,7 +10,12 @@ import StatementHistoryScreen from "./screens/StatementHistoryScreen";
 import {
   finalizeDailyBatch,
   getTodayDate,
-} from "./utils/dryveStorage";
+} from "./utils/ledgerStorage";
+import {
+  removeSessionValue,
+  STORAGE_KEYS,
+  writeSessionValue,
+} from "./config/brand";
 
 function App() {
   const [
@@ -137,8 +142,8 @@ function App() {
       data
     );
 
-    sessionStorage.setItem(
-      "dryveExtractedTransactions",
+    writeSessionValue(
+      STORAGE_KEYS.extractedTransactions,
       JSON.stringify(
         data
       )
@@ -168,16 +173,16 @@ function App() {
       null
     );
 
-    sessionStorage.removeItem(
-      "dryveTranscript"
+    removeSessionValue(
+      STORAGE_KEYS.transcript
     );
 
-    sessionStorage.removeItem(
-      "dryveBusinessDate"
+    removeSessionValue(
+      STORAGE_KEYS.businessDate
     );
 
-    sessionStorage.removeItem(
-      "dryveExtractedTransactions"
+    removeSessionValue(
+      STORAGE_KEYS.extractedTransactions
     );
 
     setCurrentScreen(
@@ -198,16 +203,16 @@ function App() {
       null
     );
 
-    sessionStorage.removeItem(
-      "dryveTranscript"
+    removeSessionValue(
+      STORAGE_KEYS.transcript
     );
 
-    sessionStorage.removeItem(
-      "dryveBusinessDate"
+    removeSessionValue(
+      STORAGE_KEYS.businessDate
     );
 
-    sessionStorage.removeItem(
-      "dryveExtractedTransactions"
+    removeSessionValue(
+      STORAGE_KEYS.extractedTransactions
     );
 
     setCurrentScreen(

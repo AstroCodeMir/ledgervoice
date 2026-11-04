@@ -13,7 +13,7 @@ import {
   formatCurrency,
   formatDate,
   getStatementHistory,
-} from "../utils/dryveStorage";
+} from "../utils/ledgerStorage";
 
 function StatementHistoryScreen({
   onBack,

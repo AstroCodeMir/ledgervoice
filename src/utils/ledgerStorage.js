@@ -1,5 +1,11 @@
-const BATCH_KEY = "dryveDailyBatches";
-const HISTORY_KEY = "dryveIncomeStatementHistory";
+import {
+  readLocalValue,
+  STORAGE_KEYS,
+  writeLocalValue,
+} from "../config/brand";
+
+const BATCH_KEY = STORAGE_KEYS.dailyBatches;
+const HISTORY_KEY = STORAGE_KEYS.statementHistory;
 
 /* =========================================
    ACCOUNTING STRUCTURE
@@ -117,7 +123,7 @@ export function formatCurrency(amount) {
 export function getDailyBatches() {
   try {
     const stored =
-      localStorage.getItem(BATCH_KEY);
+      readLocalValue(BATCH_KEY);
 
     return stored
       ? JSON.parse(stored)
@@ -256,7 +262,7 @@ export function saveRecapToDailyBatch({
 
   batches[date] = batch;
 
-  localStorage.setItem(
+  writeLocalValue(
     BATCH_KEY,
     JSON.stringify(batches)
   );
@@ -292,7 +298,7 @@ export function removeRecapFromDailyBatch(
 
   batches[date] = batch;
 
-  localStorage.setItem(
+  writeLocalValue(
     BATCH_KEY,
     JSON.stringify(batches)
   );
@@ -463,7 +469,7 @@ export function calculateStatement(
 export function getStatementHistory() {
   try {
     const stored =
-      localStorage.getItem(
+      readLocalValue(
         HISTORY_KEY
       );
 
@@ -631,7 +637,7 @@ export function finalizeDailyBatch(date) {
       new Date(a.date)
   );
 
-  localStorage.setItem(
+  writeLocalValue(
     HISTORY_KEY,
     JSON.stringify(history)
   );
@@ -646,7 +652,7 @@ export function finalizeDailyBatch(date) {
 
   batches[date] = batch;
 
-  localStorage.setItem(
+  writeLocalValue(
     BATCH_KEY,
     JSON.stringify(batches)
   );

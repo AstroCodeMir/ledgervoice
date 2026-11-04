@@ -1,20 +1,21 @@
 import { ChevronLeft, MoreHorizontal } from "lucide-react";
+import { APP_NAME } from "../config/brand";
 
-function AppHeader() {
+function AppHeader({ onBack }) {
   return (
     <header className="app-header">
       <button
         className="header-icon-button"
         type="button"
         aria-label="Go back"
-        onClick={() => window.history.back()}
+        onClick={onBack || (() => window.history.back())}
       >
         <ChevronLeft size={26} />
       </button>
 
-      <div className="brand">
-        <span className="brand-dryve">DRYVE</span>
-        <span className="brand-ph">PH</span>
+      <div className="brand" aria-label={APP_NAME}>
+        <span className="brand-ledger">LEDGER</span>
+        <span className="brand-voice">VOICE</span>
       </div>
 
       <button

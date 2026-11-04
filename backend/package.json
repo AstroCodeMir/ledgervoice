@@ -1,5 +1,6 @@
 {
-  "name": "dryve-voice-income-api",
+  "name": "ledgervoice-api",
+  "description": "LedgerVoice API for voice transcription and transaction extraction.",
   "version": "1.0.0",
   "private": true,
   "type": "module",

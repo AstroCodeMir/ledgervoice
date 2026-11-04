@@ -16,7 +16,12 @@ import {
   getTodayDate,
   getTypeForAccount,
   saveRecapToDailyBatch,
-} from "../utils/dryveStorage";
+} from "../utils/ledgerStorage";
+import {
+  readSessionValue,
+  removeSessionValue,
+  STORAGE_KEYS,
+} from "../config/brand";
 
 function ReviewScreen({
   extractedData,
@@ -31,8 +36,8 @@ function ReviewScreen({
   ====================================== */
 
   const savedExtraction =
-    sessionStorage.getItem(
-      "dryveExtractedTransactions"
+    readSessionValue(
+      STORAGE_KEYS.extractedTransactions
     );
 
   let savedData = null;
@@ -351,8 +356,8 @@ function ReviewScreen({
         reviewedTransactions,
     });
 
-    sessionStorage.removeItem(
-      "dryveExtractedTransactions"
+    removeSessionValue(
+      STORAGE_KEYS.extractedTransactions
     );
 
     onSavedToDailyBatch?.(
@@ -421,11 +426,10 @@ function ReviewScreen({
             </h1>
 
             <p className="screen-description">
-              Verify the extracted
-              transactions before
-              adding this recap to
-              the daily income
-              statement.
+              LedgerVoice prepares
+              financial entries, but
+              you remain in control
+              of what gets finalized.
             </p>
           </div>
 
@@ -715,7 +719,7 @@ function ReviewScreen({
               handleSaveToDailyBatch
             }
           >
-            Save to Daily Batch
+            Confirm & Add to Closing
           </button>
         </section>
 

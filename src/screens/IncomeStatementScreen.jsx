@@ -11,7 +11,7 @@ import BottomNav from "../components/BottomNav";
 import {
   formatCurrency,
   formatDate,
-} from "../utils/dryveStorage";
+} from "../utils/ledgerStorage";
 
 function IncomeStatementScreen({
   statement,
@@ -125,7 +125,7 @@ function IncomeStatementScreen({
 
           <div className="page-heading">
             <h1>
-              Income Statement
+              Daily Income Statement
             </h1>
 
             <div className="recording-date">

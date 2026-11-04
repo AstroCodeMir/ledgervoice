@@ -11,6 +11,10 @@ import {
 
 import AppHeader from "../components/AppHeader";
 import BottomNav from "../components/BottomNav";
+import {
+  STORAGE_KEYS,
+  writeSessionValue,
+} from "../config/brand";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
@@ -384,13 +388,13 @@ export default function RecapScreen({
         );
       }
 
-      sessionStorage.setItem(
-        "dryveTranscript",
+      writeSessionValue(
+        STORAGE_KEYS.transcript,
         transcript
       );
 
-      sessionStorage.setItem(
-        "dryveBusinessDate",
+      writeSessionValue(
+        STORAGE_KEYS.businessDate,
         businessDate
       );
 
@@ -448,24 +452,21 @@ export default function RecapScreen({
         <section className="page-heading">
           <div>
             <p className="eyebrow">
-              DAILY RECAP
+              DAILY SALES RECAP
             </p>
 
             <h1>
-              Upload Voice
-              Recording
+              Daily Sales
+              Recap
             </h1>
 
             <p className="page-description">
-              Upload the
-              manager&apos;s daily
-              voice recap. The
-              recording will be
-              transcribed and
-              reviewed before
-              accounting
-              transactions are
-              created.
+              Upload an end-of-day
+              sales recap and
+              LedgerVoice will turn
+              it into structured
+              financial entries for
+              your review.
             </p>
           </div>
         </section>
@@ -575,8 +576,7 @@ export default function RecapScreen({
               </div>
 
               <strong>
-                Choose Audio
-                Recording
+                Choose Audio Recap
               </strong>
 
               <span>
@@ -738,7 +738,7 @@ export default function RecapScreen({
                 aria-hidden="true"
               />
 
-              Process Recording
+              Transcribe Recap
             </>
           )}
         </button>

@@ -9,6 +9,7 @@ import {
 function BottomNav({
   activeTab,
   onChange,
+  onNavigate,
 }) {
   const items = [
     {
@@ -57,11 +58,7 @@ function BottomNav({
                 ? "nav-item active"
                 : "nav-item"
             }
-            onClick={() =>
-              onChange?.(
-                item.id
-              )
-            }
+            onClick={() => (onNavigate || onChange)?.(item.id)}
           >
             <Icon size={20} />
 

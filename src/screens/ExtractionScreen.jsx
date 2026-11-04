@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -12,6 +12,11 @@ import {
 
 import AppHeader from "../components/AppHeader";
 import BottomNav from "../components/BottomNav";
+import {
+  readSessionValue,
+  STORAGE_KEYS,
+  writeSessionValue,
+} from "../config/brand";
 
 /* =========================================
    API CONFIGURATION
@@ -159,16 +164,16 @@ export default function ExtractionScreen({
 
   const initialTranscript =
     recapData?.transcript ||
-    sessionStorage.getItem(
-      "dryveTranscript"
+    readSessionValue(
+      STORAGE_KEYS.transcript
     ) ||
     "";
 
   const initialDate =
     recapData?.date ||
     recapData?.businessDate ||
-    sessionStorage.getItem(
-      "dryveBusinessDate"
+    readSessionValue(
+      STORAGE_KEYS.businessDate
     ) ||
     "";
 
@@ -210,35 +215,6 @@ export default function ExtractionScreen({
     successMessage,
     setSuccessMessage,
   ] = useState("");
-
-  /* =========================================
-     NEW RECAP DATA
-  ========================================= */
-
-  useEffect(() => {
-    const nextTranscript =
-      recapData?.transcript ||
-      sessionStorage.getItem(
-        "dryveTranscript"
-      ) ||
-      "";
-
-    setTranscript(
-      nextTranscript
-    );
-
-    setSavedTranscript(
-      nextTranscript
-    );
-
-    setTransactions([]);
-
-    setError("");
-
-    setSuccessMessage("");
-
-    setIsEditing(false);
-  }, [recapData]);
 
   /* =========================================
      REVIEW COUNT
@@ -305,8 +281,8 @@ export default function ExtractionScreen({
       cleanedTranscript
     );
 
-    sessionStorage.setItem(
-      "dryveTranscript",
+    writeSessionValue(
+      STORAGE_KEYS.transcript,
       cleanedTranscript
     );
 
@@ -356,8 +332,8 @@ export default function ExtractionScreen({
       cleanedTranscript
     );
 
-    sessionStorage.setItem(
-      "dryveTranscript",
+    writeSessionValue(
+      STORAGE_KEYS.transcript,
       cleanedTranscript
     );
 
@@ -595,10 +571,11 @@ export default function ExtractionScreen({
             </h1>
 
             <p className="page-description">
-              Check what the
-              transcription service
-              understood before creating
-              financial transactions.
+              Review your transcript
+              before continuing.
+              Financial entries are
+              generated from the
+              confirmed transcript.
             </p>
           </div>
         </section>
@@ -742,8 +719,7 @@ export default function ExtractionScreen({
 
           <span>
             All monetary amounts
-            in this prototype are
-            treated as PHP.
+            are treated as PHP.
           </span>
         </div>
 

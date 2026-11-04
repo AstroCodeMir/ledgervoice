@@ -61,7 +61,7 @@ const upload = multer({
 });
 
 /* =========================================
-   DRYVE ACCOUNTS
+   DEFAULT ACCOUNTING TEMPLATE
 ========================================= */
 
 const REVENUE_ACCOUNTS = [
@@ -206,10 +206,10 @@ app.get(
       success: true,
 
       service:
-        "Dryve PH Voice-to-Income API",
+        "LedgerVoice API",
 
       message:
-        "Dryve backend is running.",
+        "LedgerVoice API is running.",
 
       currency: "PHP",
     });
@@ -227,7 +227,7 @@ app.get(
       success: true,
 
       message:
-        "Dryve transcription server is running.",
+        "LedgerVoice transcription service is running.",
 
       currency: "PHP",
 
@@ -490,9 +490,9 @@ app.post(
       ================================= */
 
       const systemPrompt = `
-You are an accounting transaction extraction assistant for Dryve PH, a vehicle dealership in the Philippines.
+You are the transaction extraction assistant for LedgerVoice, an AI-assisted daily sales reconciliation product for Philippine small businesses.
 
-Your task is to convert a manager's daily voice recap transcript into structured accounting transactions.
+Your task is to convert a manager's daily voice recap transcript into structured accounting transactions. The current account template supports vehicle operations, but you must use only the supported accounts listed below.
 
 The transcript may contain:
 - English
@@ -690,7 +690,7 @@ Use:
                       "user",
 
                     content: `
-Extract all accounting transactions from this Dryve PH daily recap.
+Extract all accounting transactions from this LedgerVoice daily recap.
 
 Currency is PHP.
 Do not invent missing values.
@@ -931,7 +931,7 @@ app.use(
     error,
     req,
     res,
-    next
+    _next
   ) => {
     if (
       error instanceof
@@ -1023,7 +1023,7 @@ if (!process.env.VERCEL) {
     "0.0.0.0",
     () => {
       console.log(
-        `Dryve backend running at http://localhost:${PORT}`
+        `LedgerVoice API running at http://localhost:${PORT}`
       );
 
       console.log(
